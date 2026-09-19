@@ -30,6 +30,8 @@ ap.add_argument('city')
 ap.add_argument('--blocks', default='6x4', help='grid of blocks, COLSxROWS')
 ap.add_argument('--holdout', type=int, default=8, help='how many blocks to hold out')
 ap.add_argument('--seed', type=int, default=0)
+ap.add_argument('--seeds', type=int, default=1,
+                help='re-run over this many held-out draws and report the spread')
 ap.add_argument('--bounds', help='west,south,east,north if the city is not in the table')
 a = ap.parse_args()
 
@@ -132,6 +134,40 @@ for b in sorted(test_blocks):
 if ious:
     print(f'\n    median {np.median(ious):.3f}   mean {np.mean(ious):.3f}   '
           f'sd {np.std(ious):.3f}   n={len(ious)}')
+
+# One split is one sample. With 8 blocks held out of 24, which 8 they are moves
+# the per-block median across a range wider than the difference between the two
+# methods being compared, so quoting a single seed reports the draw rather than
+# the method. Re-running over several seeds is the only way to see that, and
+# seeing it is the point: the honest summary is the spread, not the best run.
+if a.seeds > 1:
+    print(f'\n  across {a.seeds} held-out draws:')
+    pooled, medians = [], []
+    for sd in range(a.seeds):
+        rng2 = np.random.default_rng(sd)
+        tb = set(rng2.choice(GX * GY, size=a.holdout, replace=False).tolist())
+        tsel = valid & np.isin(block_id, list(tb))
+        trsel = valid & ~np.isin(block_id, list(tb))
+        if not tsel.any() or not trsel.any():
+            continue
+        pooled.append(score(mndwi > 0.0, tsel)[0])
+        per = []
+        for b in sorted(tb):
+            sel = valid & (block_id == b)
+            if np.count_nonzero(sel) < 100 or not truth[sel].any():
+                continue
+            per.append(score(mndwi > 0.0, sel)[0])
+        if per:
+            medians.append(float(np.median(per)))
+        print(f'    seed {sd:<3} pooled IoU {pooled[-1]:.3f}   '
+              f'per-block median {medians[-1] if medians else float("nan"):.3f}')
+    if medians:
+        print(f'\n    pooled IoU      {np.min(pooled):.3f} to {np.max(pooled):.3f}'
+              f'   (median {np.median(pooled):.3f})')
+        print(f'    per-block median {np.min(medians):.3f} to {np.max(medians):.3f}'
+              f'   (median {np.median(medians):.3f})')
+        print('\n    Report the range. A single seed is one draw, and the draw'
+              '\n    moves the answer more than the choice of threshold does.')
 
 print('\n  No learned model is scored here. This pipeline contains none —')
 print('  every flag traces to a published dataset and a stated threshold.')

@@ -32,8 +32,21 @@ STR_FIELDS = ['id', 'title', 'kind', 'authority', 'source', 'url', 'repo_ref']
 # Tokenisation must be byte-identical to tok() in index.html. If these two ever
 # disagree the client scores against postings that were built for a different
 # vocabulary, and nothing anywhere reports an error.
-STOP = set('a an the and or of to in on at is are was were be been it its this '
-           'that these those for from with as by if then than so such not no'.split())
+STOP = set(
+    # articles, conjunctions, copulas
+    'a an the and or of to in on at is are was were be been it its this '
+    'that these those for from with as by if then than so such not no '
+    # interrogatives and auxiliaries. Without these, "what is this tool and
+    # what does it do" tokenises to "what tool what does do" and BM25 ranks
+    # every chunk whose title happens to start "What a ...", which is most of
+    # the outcome group. The one content word gets buried under the noise.
+    'what which who whom whose when where why how '
+    'do does did done doing can could will would shall should may might must '
+    'have has had having am being '
+    'i me my we us our you your he she him her they them their '
+    'about into onto over under above below out up down '
+    'again more most other some any all both each few own same too very just now '
+    'here there thing things okay ok please tell say'.split())
 
 
 def tok(s):
