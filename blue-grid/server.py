@@ -39,7 +39,7 @@ ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 GEMINI_API = ('https://generativelanguage.googleapis.com/v1beta/models/'
               '%s:generateContent')
 
-DEFAULT_MODEL = {'anthropic': 'claude-opus-5', 'gemini': 'gemini-2.5-flash'}
+DEFAULT_MODEL = {'anthropic': 'claude-opus-5', 'gemini': 'gemini-3.5-flash'}
 MAX_BODY = 1 << 20          # an evidence pack is a few KB; this is generous
 
 # Both defaults now think before they answer, and thinking is drawn from the
@@ -144,9 +144,18 @@ def build_request(payload):
         return {
             'systemInstruction': {'parts': [{'text': payload['contract']}]},
             'contents': [{'role': 'user', 'parts': [{'text': user}]}],
+            # No temperature, topP or topK: Google explicitly recommends not
+            # changing the sampling parameters on the 3.x models, and the
+            # response schema already pins the shape this endpoint needs.
+            #
+            # thinkingLevel defaults to 'medium' on 3.x, and that thinking is
+            # drawn from maxOutputTokens — the same trap the Anthropic path
+            # fell into at 900. Narrating a fixed evidence pack under a
+            # contract is not a reasoning task, so it is turned down to the
+            # floor rather than left to spend the budget.
             'generationConfig': {
-                'temperature': 0,
                 'maxOutputTokens': MAX_OUTPUT_TOKENS,
+                'thinkingLevel': 'minimal',
                 'responseMimeType': 'application/json',
                 'responseSchema': gemini_schema(
                     tool.get('input_schema') or tool.get('parameters') or {}),
@@ -191,6 +200,23 @@ def upstream_request(payload):
         headers={'content-type': 'application/json',
                  'x-api-key': key(),
                  'anthropic-version': '2023-06-01'})
+
+
+def upstream_message(detail):
+    """The provider's own error sentence, if the body carries one.
+
+    Anthropic returns {"error": {"message": ...}} and Gemini
+    {"error": {"message": ...}} inside a differently shaped envelope; both
+    reduce to the same lookup. Falls back to the raw body, which is already
+    truncated by the caller.
+    """
+    try:
+        err = json.loads(detail).get('error')
+    except (ValueError, AttributeError):
+        return detail.strip()
+    if isinstance(err, dict):
+        return err.get('message') or err.get('status') or detail.strip()
+    return str(err) if err else detail.strip()
 
 
 def structured_answer(out):
@@ -309,11 +335,37 @@ class Handler(SimpleHTTPRequestHandler):
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors='replace')[:300]
             sys.stderr.write('upstream %s: %s\n' % (e.code, detail))
-            self._json(502, {'reason': 'the model API answered %s' % e.code})
+            # The status alone does not say which of the several things that
+            # produce a 400 went wrong, and the operator cannot see this log
+            # from the hall. Carry the upstream's own message across.
+            self._json(502, {'reason': 'the model API answered %s: %s'
+                             % (e.code, upstream_message(detail) or 'no detail')})
+            return
+        # A deadline and an unreachable host are different faults with
+        # different fixes, and collapsing them into "could not be reached"
+        # sent the operator looking at their network when the real answer was
+        # that the model was still thinking. socket.timeout is an OSError, so
+        # it has to be caught before the general case.
+        except TimeoutError:
+            sys.stderr.write('upstream timed out after %ss\n' % UPSTREAM_TIMEOUT)
+            self._json(502, {'reason': 'the model did not answer within %s seconds'
+                             % UPSTREAM_TIMEOUT})
+            return
+        except urllib.error.URLError as e:
+            why = getattr(e, 'reason', e)
+            if isinstance(why, TimeoutError) or 'timed out' in str(why):
+                sys.stderr.write('upstream timed out after %ss\n' % UPSTREAM_TIMEOUT)
+                self._json(502, {'reason': 'the model did not answer within %s seconds'
+                                 % UPSTREAM_TIMEOUT})
+                return
+            sys.stderr.write('upstream unreachable: %r\n' % why)
+            self._json(502, {'reason': 'could not reach %s: %s'
+                             % (provider(), why)})
             return
         except Exception as e:                                   # noqa: BLE001
             sys.stderr.write('upstream failed: %r\n' % e)
-            self._json(502, {'reason': 'the model API could not be reached'})
+            self._json(502, {'reason': 'the call to %s failed: %s'
+                             % (provider(), type(e).__name__)})
             return
 
         answer, why_not = structured_answer(out)
