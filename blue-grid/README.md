@@ -97,10 +97,19 @@ does not grant permission.
 
 | | Meaning |
 |---|---|
-| **REJECT** | Inside live water, on a former water body with ≥ 50% occurrence, or confidently inside a buffer. |
+| **REJECT** | Inside live water, on a former water body with ≥ 50% occurrence, on a former bed that already carries construction, or confidently inside a buffer. |
 | **REFER TO GROUND SURVEY** | The measurement cannot resolve the question at ±20 m, or the two shorelines disagree. |
 | **CONDITIONS REQUIRED** | Low ground: retention and a plinth condition. |
 | **NO RECORDED OBJECTION** | Nothing found — which at 30 m is not the same as nothing there. |
+
+Occurrence deliberately does not carry that branch on its own. JRC occurrence
+is the share of observations that were water across 1984–2021, so a tank drained
+and built over part-way through the window scores *low* precisely because it was
+destroyed — the more completely a bed was encroached, the weaker the only signal
+that would have rejected it. A bed lost in 2017 came back at 16% and screened as
+an unresolved wet season. Two corroborating signals now settle it: construction
+already standing on the mapped bed, which is a rejection, and a bed still at the
+level of the channel it drained into, which is a referral naming the reason.
 
 The finding worth demonstrating is the shoreline disagreement. An applicant
 measures their buffer from the water's edge *as it stands today*. Where the
@@ -146,6 +155,11 @@ offscreen canvas. No server, no API, no network. It cannot fail on stage.
 ---
 
 ## Asking
+
+The ask box is docked at the bottom of the window, in the same slot the
+timeline occupies in timeline mode — one place to look for the control you drive
+the tool with, and one that never moves as the answer grows. The answer opens
+upward from it, so the input stays under the cursor.
 
 Click a plot or a flagged structure, then ask. Three chips cover the questions
 this was built for; the box takes anything.
@@ -258,12 +272,28 @@ per-year classification, over the same pixels in the same years (2003–2007),
 on held-out spatial blocks:
 
 ```
-./validate.py bengaluru --blocks 6x4 --holdout 8
+./validate.py bengaluru --blocks 6x4 --holdout 8 --seeds 6
 ```
 
 Blocks are contiguous tiles, not random pixels. Neighbouring pixels of one
 lake are not independent samples, and a pixel-wise split would inflate every
 score. The Otsu threshold is fitted on training blocks only.
+
+**Quote the range, not a run.** With 8 blocks held out of 24, which 8 they are
+moves the result more than the choice of threshold does:
+
+| | across six draws |
+|---|---|
+| pooled IoU | 0.43 – 0.81 |
+| per-block median IoU | 0.21 – 0.69 |
+
+`--seeds` exists to make that visible. A single seed reports the draw. The
+pooled figure is also the flattering one: one large lake carries it, and the
+blocks that score worst are the ones with almost no water in them, where IoU
+punishes a handful of misclassified pixels hardest. The defensible summary is
+that MNDWI reproduces the JRC reference well where there is water to find and
+poorly where there is barely any — which is a statement about the metric and
+the terrain as much as about the method.
 
 This pipeline contains no learned model. Every flag traces to a published
 dataset and a stated threshold, which is why a judge can be handed the reason

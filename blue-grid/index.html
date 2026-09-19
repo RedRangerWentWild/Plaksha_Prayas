@@ -7,278 +7,599 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <style>
+/* ===========================================================================
+   DESIGN SYSTEM
+   ---------------------------------------------------------------------------
+   The old skin was five translucent cards floating on satellite imagery with
+   22 px of backdrop blur behind every one of them. Over a busy raster that
+   reads as mush: the text sat at roughly 3:1 against whatever pixels happened
+   to be underneath, and every panel carried the same weight, so the screening
+   verdict looked exactly like the plot-frontage field.
+
+   This is an instrument, not a glass dashboard. Three rules follow from that:
+
+   1. SURFACES ARE OPAQUE. Blur is kept only where a panel genuinely overlaps
+      the map, and even there the surface is 94% opaque. Contrast is a
+      legibility requirement for a document that gets printed and signed, not
+      a style choice.
+   2. ONE THING IS LOUD PER PANEL. The verdict, then the two or three
+      measurements that produced it. Everything else is a hairline row that
+      the eye can skip. A panel where everything is 12 px has no hierarchy.
+   3. NUMBERS ARE TABULAR AND MONOSPACED, PROSE IS NOT. A column of distances
+      must align on the decimal or it cannot be scanned.
+   =========================================================================== */
 :root{
-  --ink:#05070c; --panel:rgba(9,13,22,.82); --panel-solid:#0a0f19;
-  --line:rgba(140,170,220,.16); --line-hot:rgba(140,170,220,.34);
-  --text:#e9f0fa; --dim:#7d8ea8; --faint:#4d5b70;
-  --water-old:#1f6feb; --water-now:#58a6ff; --red:#ff5b52; --amber:#f0b429;
-  --violet:#a371f7; --green:#3fb950;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  /* Neutral near-black, not blue-tinted. The map supplies all the colour this
+     interface needs; the chrome around it should recede. */
+  --ink:#07080b;
+  --surface:#0e1116;         /* panels */
+  --raised:#161a22;          /* controls sitting on panels */
+  --sunken:#0a0c11;          /* wells, inputs */
+
+  --line:rgba(255,255,255,.075);
+  --line-hot:rgba(255,255,255,.16);
+  --line-bright:rgba(255,255,255,.28);
+
+  --text:#eef1f6;
+  --dim:#939cae;
+  --faint:#5d6676;
+
+  /* One interactive accent. Everything clickable is this colour; nothing that
+     is not clickable is. */
+  --accent:#4d9fff;
+  --accent-dim:rgba(77,159,255,.14);
+  --accent-line:rgba(77,159,255,.40);
+
+  /* Verdict semantics. Deliberately distinct from the map palette below —
+     a REJECT badge and the red encroachment raster must not read as the same
+     object. The badge also carries a left rule and a tint, so the two are
+     separated by structure and not by hue alone. */
+  --v-reject:#ff5f57;
+  --v-refer:#b06bff;
+  --v-conditions:#ffb224;
+  --v-clear:#35d07f;
+
+  /* Map layer palette — mirrors PALETTE in the script, which mirrors the
+     colours gee_blue_grid.js renders the PNGs with. */
+  --lyr-historic:#1f6feb;
+  --lyr-present:#58a6ff;
+  --lyr-encroached:#f85149;
+  --lyr-flowpath:#d29922;
+  --lyr-floodprone:#bc8cff;
+
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+
+  --r-lg:14px; --r-md:10px; --r-sm:7px;
+  --shadow:0 20px 60px -12px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.4);
+
+  --topbar-h:54px;
+  --dock-gap:16px;
+  /* The space the dock may occupy, as insets from each edge. Updated when the
+     queue collapses so the dock reclaims the room rather than staying offset
+     against a rail that is no longer there. */
+  --rail-l:326px;
+  --rail-r:368px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--ink);color:var(--text);font-family:var(--sans);
-  font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased}
+  font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility}
 #map{position:absolute;inset:0}
-.maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(5,7,12,.7)!important}
+.maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(7,8,11,.82)!important}
 .maplibregl-ctrl-attrib a{color:var(--faint)!important}
+.maplibregl-ctrl-group{background:var(--surface)!important;border:1px solid var(--line)!important;
+  box-shadow:none!important}
+.maplibregl-ctrl-group button+button{border-top:1px solid var(--line)!important}
+.maplibregl-ctrl-group button span{filter:invert(1) opacity(.7)}
+/* The zoom control sits above the dock rather than beside it. */
+.maplibregl-ctrl-bottom-right{bottom:112px!important}
 
-/* ---------- shell ---------- */
-.glass{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);
-  box-shadow:0 18px 60px rgba(0,0,0,.55)}
-#top{position:absolute;top:0;left:0;right:0;height:58px;z-index:20;display:flex;
-  align-items:center;gap:20px;padding:0 18px;
-  background:linear-gradient(180deg,rgba(5,7,12,.96),rgba(5,7,12,0));pointer-events:none}
-#top>*{pointer-events:auto;flex:none}
-@media (max-width:1180px){ .tabs button{padding:8px 10px;font-size:11px}
-  #city{max-width:190px} .brand i{display:none} }
-@media (max-width:980px){ #csvBtn{display:none} }
-.brand{display:flex;align-items:baseline;gap:9px;flex:none}
-.brand b{font-size:15px;font-weight:800;letter-spacing:-.02em}
-.brand i{font-style:normal;font-size:9px;letter-spacing:.22em;color:var(--red);
-  font-family:var(--mono);border:1px solid rgba(255,91,82,.4);padding:2px 6px;border-radius:4px}
+::selection{background:rgba(77,159,255,.3)}
 
-select{background:var(--panel-solid);color:var(--text);border:1px solid var(--line);
-  border-radius:9px;padding:7px 11px;font-size:12px;font-family:var(--sans);
-  font-weight:600;cursor:pointer;outline:none}
+/* ---------- surfaces ----------
+   .panel is the single surface primitive. The inset highlight along the top
+   edge is what makes it read as a machined object rather than a rectangle:
+   one hairline of light where a real bevel would catch it. */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.045)}
+.panel.over-map{background:rgba(14,17,22,.94);
+  backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}
 
-.tabs{display:flex;gap:2px;background:rgba(9,13,22,.8);border:1px solid var(--line);
-  border-radius:10px;padding:3px;margin-left:auto}
-.tabs button{background:none;border:none;color:var(--dim);font:600 11.5px/1 var(--sans);
-  letter-spacing:.04em;padding:8px 14px;border-radius:7px;cursor:pointer;
-  transition:color .18s, background .18s}
-.tabs button:hover{color:var(--text)}
-.tabs button.on{background:rgba(47,129,247,.18);color:#cfe3ff;
-  box-shadow:inset 0 0 0 1px rgba(47,129,247,.4)}
+/* Section label. One style, used in every panel, so a heading always means
+   the same thing. */
+.lbl{font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint)}
 
-.ghost{background:rgba(9,13,22,.8);border:1px solid var(--line);color:var(--dim);
-  border-radius:10px;padding:8px 13px;font:600 11.5px/1 var(--sans);cursor:pointer;
-  transition:color .18s,border-color .18s}
-.ghost:hover{color:var(--text);border-color:var(--line-hot)}
+/* ---------- scrollbars ---------- */
+.scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line-hot) transparent}
+.scroll::-webkit-scrollbar{width:6px;height:6px}
+.scroll::-webkit-scrollbar-track{background:transparent}
+.scroll::-webkit-scrollbar-thumb{background:var(--line-hot);border-radius:3px}
+.scroll::-webkit-scrollbar-thumb:hover{background:var(--line-bright)}
 
-/* ---------- rails ---------- */
-#left{position:absolute;left:16px;top:70px;width:302px;z-index:15;
-  max-height:calc(100vh - 210px);display:flex;flex-direction:column}
-#right{position:absolute;right:16px;top:70px;width:306px;z-index:15;
-  max-height:calc(100vh - 210px);overflow-y:auto;display:flex;flex-direction:column;gap:12px}
-#left::-webkit-scrollbar,#right::-webkit-scrollbar,.scroll::-webkit-scrollbar{width:5px}
-#right::-webkit-scrollbar-thumb,.scroll::-webkit-scrollbar-thumb{background:var(--line-hot);border-radius:3px}
+/* ===========================================================================
+   TOP BAR
+   Identity, place, mode, and the two global actions. Buffer configuration used
+   to live here too, which was wrong: it is an input to one specific screening
+   decision, so it now sits in the inspector beside the decision it changes.
+   =========================================================================== */
+#top{position:absolute;top:0;left:0;right:0;height:var(--topbar-h);z-index:30;
+  display:flex;align-items:center;gap:14px;padding:0 14px;
+  background:rgba(7,8,11,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--line)}
 
-.card{padding:15px 16px}
-.card h3{font-size:9.5px;letter-spacing:.2em;color:var(--faint);font-weight:700;
-  text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)}
+.brand{display:flex;align-items:center;gap:9px;flex:none;user-select:none}
+.brand .mark{width:22px;height:22px;flex:none;position:relative}
+.brand b{font:700 13px/1 var(--sans);letter-spacing:-.01em;white-space:nowrap}
+.brand em{font-style:normal;font:600 8.5px/1 var(--mono);letter-spacing:.18em;
+  color:var(--v-reject);border:1px solid rgba(255,95,87,.35);
+  padding:3px 5px;border-radius:4px;background:rgba(255,95,87,.08)}
 
-/* ---------- stats ---------- */
-.metric{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
-  padding:7px 0;border-bottom:1px solid rgba(140,170,220,.07)}
-.metric:last-child{border-bottom:none}
-.metric .k{font-size:11.5px;color:var(--dim)}
-.metric .v{font-family:var(--mono);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
-.metric.big .v{font-size:23px;font-weight:700;letter-spacing:-.02em}
-.v.red{color:var(--red)} .v.blue{color:var(--water-now)} .v.violet{color:var(--violet)}
+.vr{width:1px;height:22px;background:var(--line);flex:none}
 
-.bar{height:5px;border-radius:3px;background:rgba(47,129,247,.14);overflow:hidden;margin-top:10px}
-.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--red),#ff8f6b);
-  border-radius:3px;transition:width 1.1s cubic-bezier(.22,1,.36,1)}
+/* Native select, restyled. A custom dropdown would be more controllable and
+   would also need keyboard handling, an outside-click listener and a focus
+   trap — three things the platform already gets right. */
+select{appearance:none;-webkit-appearance:none;
+  background:var(--raised);color:var(--text);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:7px 26px 7px 10px;font:600 12px/1 var(--sans);
+  cursor:pointer;outline:none;transition:border-color .15s, background .15s;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23939cae' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center}
+select:hover{border-color:var(--line-hot)}
+select:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
 
-/* ---------- priority list ---------- */
-.scroll{overflow-y:auto}
-.item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;
-  cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
-.item:hover{background:rgba(47,129,247,.09);border-color:rgba(47,129,247,.28)}
-.item .rank{font-family:var(--mono);font-size:10px;color:var(--faint);width:18px;flex:none}
+/* Segmented control. The mode IS the product's posture, so it gets the centre
+   of the bar and a moving highlight rather than three separate buttons. */
+.segmented{display:flex;gap:2px;background:var(--sunken);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:3px;margin:0 auto}
+.segmented button{background:none;border:none;color:var(--dim);cursor:pointer;
+  font:600 12px/1 var(--sans);padding:8px 16px;border-radius:var(--r-sm);
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+  transition:color .16s, background .16s}
+.segmented button:hover{color:var(--text)}
+.segmented button.on{background:var(--raised);color:var(--text);
+  box-shadow:0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06)}
+.segmented button .sd{width:6px;height:6px;border-radius:50%;background:currentColor;
+  opacity:.35;transition:opacity .16s}
+.segmented button.on .sd{opacity:1;background:var(--accent)}
+
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--raised);
+  border:1px solid var(--line);color:var(--dim);border-radius:var(--r-sm);
+  padding:8px 12px;font:600 11.5px/1 var(--sans);cursor:pointer;white-space:nowrap;
+  transition:color .15s, border-color .15s, background .15s}
+.btn:hover{color:var(--text);border-color:var(--line-hot);background:#1b2029}
+.btn:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.btn svg{flex:none;opacity:.8}
+.btn.primary{background:var(--accent-dim);border-color:var(--accent-line);color:#bcdcff}
+.btn.primary:hover{background:rgba(77,159,255,.22);color:#dbecff}
+.btn:disabled{opacity:.45;cursor:default;pointer-events:none}
+
+/* ===========================================================================
+   LEFT — the queue
+   A browsing aid, not the product, so it collapses. It opens by default only
+   where browsing is the point (timeline and downstream) and starts collapsed
+   in screening, where the map click is the input.
+   =========================================================================== */
+#left{position:absolute;left:14px;top:calc(var(--topbar-h) + 12px);width:296px;z-index:20;
+  max-height:calc(100vh - var(--topbar-h) - 150px);display:flex;flex-direction:column;
+  transition:transform .32s cubic-bezier(.32,.72,0,1), opacity .24s}
+#left.collapsed{transform:translateX(calc(-100% - 20px));opacity:0;pointer-events:none}
+
+#queueToggle{position:absolute;left:14px;top:calc(var(--topbar-h) + 12px);z-index:19;
+  opacity:0;pointer-events:none;transition:opacity .24s}
+#queueToggle.show{opacity:1;pointer-events:auto}
+
+.phead{display:flex;align-items:center;gap:8px;padding:13px 14px 11px;
+  border-bottom:1px solid var(--line);flex:none}
+.phead .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font:600 9.5px/1 var(--mono);letter-spacing:.06em;color:var(--dim);
+  background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:4px 8px;
+  flex:none;font-variant-numeric:tabular-nums}
+.iconbtn{background:none;border:none;color:var(--faint);cursor:pointer;padding:3px;
+  border-radius:5px;display:grid;place-items:center;flex:none;transition:color .15s,background .15s}
+.iconbtn:hover{color:var(--text);background:var(--raised)}
+
+#list{padding:6px;max-height:100%}
+.item{display:flex;align-items:center;gap:10px;padding:9px 9px;border-radius:var(--r-sm);
+  cursor:pointer;border:1px solid transparent;transition:background .14s,border-color .14s}
+.item:hover{background:var(--raised);border-color:var(--line)}
+.item.on{background:var(--accent-dim);border-color:var(--accent-line)}
+.item .rank{font:600 10px/1 var(--mono);color:var(--faint);width:16px;flex:none;
+  font-variant-numeric:tabular-nums;text-align:right}
+.item .dot{width:7px;height:7px;border-radius:2px;flex:none}
 .item .body{flex:1;min-width:0}
-.item .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .sub{font-size:10.5px;color:var(--faint);font-family:var(--mono)}
-.item .sc{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--red)}
-.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.item .nm{font:600 12.5px/1.3 var(--sans);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;display:block}
+.item .sub{font:400 10.5px/1.4 var(--mono);color:var(--faint);display:block;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.item .sc{font:700 12px/1 var(--mono);color:var(--v-reject);flex:none;
+  font-variant-numeric:tabular-nums}
+.empty{padding:16px 14px;font:400 11.5px/1.65 var(--sans);color:var(--faint)}
 
-/* ---------- verdict ---------- */
-#verdict{display:none;animation:slam .42s cubic-bezier(.16,1,.3,1)}
-@keyframes slam{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
-.vbadge{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:11px;
-  font-weight:800;font-size:12.5px;letter-spacing:.02em;margin-bottom:13px}
-.vbadge.red{background:rgba(255,91,82,.15);color:#ff8880;box-shadow:inset 0 0 0 1px rgba(255,91,82,.4)}
-.vbadge.amber{background:rgba(240,180,41,.13);color:#f3c65c;box-shadow:inset 0 0 0 1px rgba(240,180,41,.36)}
-.vbadge.green{background:rgba(63,185,80,.13);color:#63d478;box-shadow:inset 0 0 0 1px rgba(63,185,80,.36)}
-.vbadge.blue{background:rgba(108,182,255,.13);color:#8ac8ff;box-shadow:inset 0 0 0 1px rgba(108,182,255,.36)}
-.vbadge.violet{background:rgba(163,113,247,.15);color:#c9a6ff;box-shadow:inset 0 0 0 1px rgba(163,113,247,.42)}
-.vbadge .ic{font-size:17px;line-height:1}
-.act{width:100%;margin-top:11px;padding:10px;background:rgba(47,129,247,.16);
-  border:1px solid rgba(47,129,247,.4);color:#cfe3ff;border-radius:10px;
-  font:700 11.5px/1 var(--sans);cursor:pointer;transition:background .16s}
-.act:hover{background:rgba(47,129,247,.28)}
-.act:disabled{opacity:.55;cursor:default}
+/* ===========================================================================
+   RIGHT — the inspector
+   One column, but a strict order: what was decided, what decided it, what else
+   was measured, what you can do about it. The old panel interleaved all four.
+   =========================================================================== */
+#right{position:absolute;right:14px;top:calc(var(--topbar-h) + 12px);width:340px;z-index:20;
+  max-height:calc(100vh - var(--topbar-h) - 150px);display:flex;flex-direction:column;gap:11px;
+  overflow:visible}
+#rightScroll{display:flex;flex-direction:column;gap:11px;overflow-y:auto;min-height:0;
+  padding-right:2px}
 
-/* ---------- ask ---------- */
-.asker{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
-.chip{padding:6px 9px;background:rgba(140,170,220,.07);border:1px solid var(--line);
-  color:var(--dim);border-radius:999px;font:600 10.5px/1 var(--sans);cursor:pointer;
-  transition:color .16s,border-color .16s}
-.chip:hover{color:var(--text);border-color:var(--line-hot)}
-.askrow{display:flex;gap:7px;align-items:stretch}
-.askrow input{flex:1;min-width:0;padding:9px 11px;background:rgba(140,170,220,.06);
-  border:1px solid var(--line);border-radius:10px;color:var(--text);
-  font:400 12px/1.2 var(--sans);outline:none}
-.askrow input:focus{border-color:var(--line-hot)}
-.askrow .act{width:auto;margin:0;padding:9px 15px;white-space:nowrap}
+/* ---- screening parameters ----
+   Moved out of the header. These two inputs change the verdict, so they belong
+   against the verdict where the officer can see what was applied. */
+#paramsBar{display:none;padding:12px 14px;gap:10px;flex-direction:column}
+#paramsBar.on{display:flex}
+/* Label above control, not beside it. Beside it, a 52 px gutter left the
+   select 265 px, and "State revision — 30 m lake buffer" does not fit in 265 px
+   — the officer saw a rule name cut off mid-word on the control that decides
+   the verdict. */
+.pfield{display:flex;flex-direction:column;gap:6px}
+.pfield select{width:100%;min-width:0;font-size:11.5px}
+.numin{display:flex;align-items:center;gap:0;background:var(--sunken);
+  border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;flex:1}
+.numin input{flex:1;min-width:0;background:none;border:none;color:var(--text);
+  font:600 12px/1 var(--mono);padding:8px 9px;outline:none;font-variant-numeric:tabular-nums;
+  -moz-appearance:textfield}
+.numin input::-webkit-outer-spin-button,.numin input::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.numin span{font:600 10.5px/1 var(--mono);color:var(--faint);padding:0 10px 0 4px;flex:none}
+.numin:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
 
-#answer{display:none;margin-top:13px;padding:13px;border-radius:10px;
-  background:rgba(140,170,220,.05);border:1px solid var(--line)}
-.ahead{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;
-  padding-bottom:9px;border-bottom:1px solid var(--line)}
-.ahead .q{font-size:12px;font-weight:700;line-height:1.4}
-.ahead .gen{font-size:10px;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
-/* A withheld model answer is reported, never hidden: the officer is entitled
-   to know the machine said something the tool would not stand behind. */
-.awarn{margin-bottom:10px;padding:8px 10px;border-radius:8px;font-size:10.5px;
-  line-height:1.55;color:#f3d79a;background:rgba(240,180,41,.09);
-  border-left:2px solid var(--amber)}
-.atext{font-size:12px;line-height:1.7;color:#c9d7ea}
-.atext .cite{font-family:var(--mono);font-size:9px;color:var(--water-now);
-  padding:0 1px;vertical-align:super}
-.arefuse{margin-top:10px;padding:8px 10px;border-radius:8px;font-size:10.5px;
-  line-height:1.55;color:#c9a6ff;background:rgba(163,113,247,.1);
-  border-left:2px solid var(--violet)}
-.asec{margin:14px 0 4px;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--faint);font-weight:700}
-#answer .metric{padding:6px 0}
+/* ---- the catchment ledger ---- */
+#statsCard{padding:14px}
+#statsCard .phead{padding:0 0 11px;margin-bottom:3px}
+.metric{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:8px 0;border-bottom:1px solid var(--line)}
+.metric:last-child{border-bottom:none}
+.metric .k{font:400 11.5px/1.45 var(--sans);color:var(--dim)}
+.metric .v{font:600 13.5px/1 var(--mono);font-variant-numeric:tabular-nums;
+  white-space:nowrap;flex:none}
+.metric.big{padding:11px 0}
+.metric.big .v{font-size:26px;font-weight:700;letter-spacing:-.025em}
+.v.red{color:var(--v-reject)} .v.blue{color:var(--lyr-present)} .v.violet{color:var(--lyr-floodprone)}
+.bar{height:3px;border-radius:2px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--v-reject),#ff9d6b);
+  transition:width 1.1s cubic-bezier(.22,1,.36,1)}
+
+/* ---- the verdict ----
+   A banner with a left rule, not a rounded pill. The rule is what makes it
+   read as a stamp on a document rather than another button. */
+#verdict{display:none;overflow:hidden}
+#verdict.on{display:block;animation:rise .38s cubic-bezier(.16,1,.3,1)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.vbanner{position:relative;padding:15px 16px 15px 19px;border-bottom:1px solid var(--line)}
+.vbanner::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:currentColor}
+.vbanner .vrow{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.vbanner .vic{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;
+  font:700 11px/1 var(--sans);background:currentColor;flex:none}
+.vbanner .vic span{color:var(--surface)}
+.vbanner .vt{font:800 13px/1.2 var(--sans);letter-spacing:.01em}
+.vbanner .vsub{font:400 12px/1.6 var(--sans);color:#c2cbda}
+.vbanner.reject{color:var(--v-reject);background:linear-gradient(90deg,rgba(255,95,87,.12),rgba(255,95,87,.02))}
+.vbanner.refer{color:var(--v-refer);background:linear-gradient(90deg,rgba(176,107,255,.12),rgba(176,107,255,.02))}
+.vbanner.conditions{color:var(--v-conditions);background:linear-gradient(90deg,rgba(255,178,36,.11),rgba(255,178,36,.02))}
+.vbanner.clear{color:var(--v-clear);background:linear-gradient(90deg,rgba(53,208,127,.11),rgba(53,208,127,.02))}
+
+/* ---- drivers ----
+   The measurements that actually produced the verdict, pulled out of the table
+   and given size. In the old panel "0 m to the 1984-99 edge" — the finding —
+   was rendered identically to "plot frontage assumed". */
+.drivers{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
+  border-bottom:1px solid var(--line)}
+.drivers.one{grid-template-columns:1fr}
+.driver{background:var(--surface);padding:12px 14px}
+.driver .dk{font:600 9.5px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);display:block;margin-bottom:6px}
+.driver .dv{font:700 21px/1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  display:block}
+.driver .dn{font:400 10.5px/1.45 var(--sans);color:var(--dim);display:block;margin-top:5px}
+.driver.hot .dv{color:var(--v-reject)}
+.driver.warn .dv{color:var(--v-conditions)}
+.driver.ok .dv{color:var(--v-clear)}
+
+/* ---- collapsible measurement table ---- */
+.fold{border-bottom:1px solid var(--line)}
+.fold>summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;
+  align-items:center;gap:8px;transition:background .14s}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary:hover{background:var(--raised)}
+.fold>summary .lbl{flex:1}
+.fold>summary .chev{transition:transform .22s;color:var(--faint);flex:none}
+.fold[open]>summary .chev{transform:rotate(90deg)}
+.foldbody{padding:2px 14px 13px}
+.foldbody .metric .k{font-size:11px}
+.foldbody .metric .v{font-size:12px}
+
+.vactions{padding:13px 14px;display:flex;flex-direction:column;gap:8px}
+.vactions .btn{justify-content:center;width:100%}
+
+/* ===========================================================================
+   DOCK — one slot at the bottom centre, two occupants
+   The timeline owns it in timeline mode; the ask bar owns it everywhere else.
+   They never coexist, so they never need to negotiate space, and the eye
+   learns one place to look for "the thing I drive this with".
+   =========================================================================== */
+/* Centred between the rails rather than on the viewport. Centring on 50% of
+   the window looks right only while both rails happen to be the same width —
+   at any narrower size the answer panel slid straight under the inspector. */
+#dock{position:absolute;left:var(--rail-l);right:var(--rail-r);bottom:var(--dock-gap);
+  margin-inline:auto;max-width:760px;
+  z-index:25;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+#dock>*{pointer-events:auto}
+
+/* ---- timeline ---- */
+#timeline{padding:14px 18px 15px;transition:transform .4s cubic-bezier(.32,.72,0,1),opacity .3s}
+#timeline.hid{transform:translateY(calc(100% + 30px));opacity:0;pointer-events:none;
+  position:absolute;bottom:0;left:0;right:0}
+.trow{display:flex;align-items:center;gap:16px}
+#play{width:40px;height:40px;flex:none;border-radius:50%;
+  border:1px solid var(--accent-line);background:var(--accent-dim);color:#bcdcff;
+  font-size:13px;cursor:pointer;display:grid;place-items:center;
+  transition:transform .16s cubic-bezier(.34,1.56,.64,1),background .16s}
+#play:hover{background:rgba(77,159,255,.26);transform:scale(1.06)}
+#play:active{transform:scale(.97)}
+.tcore{flex:1;min-width:0}
+.thead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:9px}
+#year{font:700 24px/1 var(--mono);letter-spacing:-.03em;font-variant-numeric:tabular-nums;flex:none}
+#caption{font:400 11.5px/1.5 var(--sans);color:var(--dim);text-align:right}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;
+  border-radius:2px;outline:none;cursor:pointer;
+  background:linear-gradient(90deg,var(--lyr-historic),var(--v-reject))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:#fff;cursor:grab;
+  box-shadow:0 0 0 4px rgba(255,255,255,.14), 0 2px 6px rgba(0,0,0,.5)}
+input[type=range]::-webkit-slider-thumb:active{cursor:grabbing}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;
+  background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.14)}
+.ticks{display:flex;justify-content:space-between;margin-top:8px;
+  font:400 9.5px/1 var(--mono);color:var(--faint);letter-spacing:.02em}
+
+/* ---- ask ----
+   Its own input, docked, always in the same place. It used to be the last
+   element inside a 900 px stack in a 306 px rail, which meant the officer had
+   to scroll past every measurement to reach the one control that takes a
+   question. The answer expands upward from here so the input never moves.
+   =========================================================================== */
+#askDock{display:none;flex-direction:column;gap:9px}
+#askDock.on{display:flex;animation:rise .3s cubic-bezier(.16,1,.3,1)}
+
+#answerPanel{display:none;max-height:min(46vh,430px);overflow:hidden;flex-direction:column}
+#answerPanel.on{display:flex}
+.ahead{display:flex;align-items:flex-start;gap:10px;padding:13px 15px;
+  border-bottom:1px solid var(--line);flex:none}
+.ahead .q{font:600 12.5px/1.45 var(--sans);flex:1;min-width:0}
+.ahead .gen{font:600 9.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--faint);flex:none;padding-top:2px}
+#answer{padding:14px 15px;overflow-y:auto;min-height:0}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:7px 11px;background:rgba(14,17,22,.92);border:1px solid var(--line);
+  color:var(--dim);border-radius:20px;font:600 11px/1 var(--sans);cursor:pointer;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  transition:color .15s,border-color .15s,background .15s}
+.chip:hover{color:var(--text);border-color:var(--line-hot);background:var(--raised)}
+
+.askbar{display:flex;gap:9px;align-items:center;padding:8px 8px 8px 15px}
+.askbar .qi{flex:none;color:var(--faint);display:grid;place-items:center}
+.askbar input{flex:1;min-width:0;background:none;border:none;color:var(--text);
+  font:400 13px/1.3 var(--sans);outline:none;padding:9px 0}
+.askbar input::placeholder{color:var(--faint)}
+.askbar .btn{padding:9px 14px}
+kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:4px;padding:4px 5px;background:var(--sunken)}
+
+/* answer internals */
+.awarn{margin-bottom:11px;padding:9px 11px;border-radius:var(--r-sm);
+  font:400 11px/1.6 var(--sans);color:#ffd79a;background:rgba(255,178,36,.09);
+  border-left:2px solid var(--v-conditions)}
+.atext{font:400 12.5px/1.75 var(--sans);color:#ccd5e2}
+.atext .cite{font:600 9px/1 var(--mono);color:var(--accent);padding:0 1px;vertical-align:super}
+.arefuse{margin-top:11px;padding:9px 11px;border-radius:var(--r-sm);
+  font:400 11px/1.6 var(--sans);color:#d5b8ff;background:rgba(176,107,255,.1);
+  border-left:2px solid var(--v-refer)}
+.asec{margin:16px 0 5px;font:600 9.5px/1 var(--mono);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint)}
+#answer .metric{padding:7px 0}
 #answer .metric .v{font-size:12px}
 #answer .metric i{font-style:normal;color:var(--faint);font-size:10px;font-weight:400}
-.awhat{margin:0;padding-left:15px;font-size:11px;line-height:1.6;color:var(--dim)}
-.awhat li{margin-bottom:4px}
-.asrc{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
-.asrc .n{flex:0 0 15px;font-family:var(--mono);font-size:9px;color:var(--water-now);
-  padding-top:2px}
-.asrc b{display:block;font-size:11px;font-weight:600;line-height:1.4}
-.asrc i{display:block;font-style:normal;font-size:10px;color:var(--faint);
-  line-height:1.5;margin-top:1px}
-.asrc em{display:block;font-style:normal;font-family:var(--mono);font-size:9px;
-  color:rgba(125,142,168,.6);margin-top:2px}
-.asrc a{display:inline-block;font-size:9.5px;color:var(--water-now);margin-top:2px}
+.awhat{margin:0;padding-left:16px;font:400 11.5px/1.7 var(--sans);color:var(--dim)}
+.awhat li{margin-bottom:5px}
+.asrc{display:flex;gap:9px;padding:9px 0;border-top:1px solid var(--line)}
+.asrc .n{flex:0 0 14px;font:600 9px/1.6 var(--mono);color:var(--accent)}
+.asrc b{display:block;font:600 11.5px/1.45 var(--sans)}
+.asrc i{display:block;font-style:normal;font:400 10.5px/1.55 var(--sans);color:var(--faint);margin-top:2px}
+.asrc em{display:block;font-style:normal;font:400 9px/1.5 var(--mono);
+  color:rgba(93,102,118,.75);margin-top:3px}
+.asrc a{display:inline-block;font:600 9.5px/1 var(--sans);color:var(--accent);
+  margin-top:4px;text-decoration:none}
+.asrc a:hover{text-decoration:underline}
 
-/* ---------- timeline ---------- */
-#timeline{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:18;
-  transition:transform .45s cubic-bezier(.16,1,.3,1),opacity .35s;
-  width:min(680px,calc(100vw - 680px));min-width:420px;padding:14px 20px 16px}
-.trow{display:flex;align-items:center;gap:16px}
-#play{width:42px;height:42px;flex:none;border-radius:50%;border:1px solid rgba(47,129,247,.45);
-  background:rgba(47,129,247,.16);color:#cfe3ff;font-size:15px;cursor:pointer;
-  display:grid;place-items:center;transition:transform .16s,background .16s}
-#play:hover{background:rgba(47,129,247,.3);transform:scale(1.07)}
-.tcore{flex:1;min-width:0}
-.thead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
-#year{font-family:var(--mono);font-size:27px;font-weight:700;letter-spacing:-.03em;
-  font-variant-numeric:tabular-nums;line-height:1}
-#caption{font-size:11.5px;color:var(--dim);text-align:right;max-width:330px}
-input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;
-  background:linear-gradient(90deg,var(--water-old),var(--red));outline:none;cursor:pointer}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
-  border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.16);cursor:grab}
-.ticks{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);
-  font-size:9.5px;color:var(--faint)}
+/* ===========================================================================
+   LEGEND + TRANSIENTS
+   =========================================================================== */
+#legend{position:absolute;left:14px;bottom:var(--dock-gap);z-index:20;padding:11px 13px;
+  transition:opacity .25s}
+#legend .key{display:flex;align-items:center;gap:9px;padding:3.5px 0;
+  font:400 11px/1.3 var(--sans);color:#b6c0d0}
+.sw{width:10px;height:10px;border-radius:3px;flex:none}
 
-/* ---------- legend ---------- */
-#timeline.hid{transform:translateX(-50%) translateY(150%);opacity:0;pointer-events:none}
-#ruleBar{display:none;align-items:center;gap:8px;background:rgba(9,13,22,.8);
-  border:1px solid var(--line);border-radius:10px;padding:4px 10px 4px 4px}
-#ruleBar.on{display:flex}
-#ruleBar label{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:5px}
-#ruleBar input{width:52px;background:var(--panel-solid);color:var(--text);
-  border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:11px;
-  font-family:var(--mono);outline:none}
+/* Top-centre, under the bar. Bottom-right put it on top of the zoom control
+   and inside the thumb's path on a trackpad. */
+#toast{position:absolute;top:calc(var(--topbar-h) + 12px);left:50%;transform:translateX(-50%);
+  max-width:440px;z-index:40;padding:11px 38px 11px 13px;
+  font:400 11.5px/1.55 var(--sans);color:#ffd79a;display:none;cursor:pointer;
+  border-color:rgba(255,178,36,.34);background:rgba(28,22,10,.95)}
+#toast::after{content:'\00d7';position:absolute;top:9px;right:13px;font-size:16px;color:var(--faint)}
 
-#legend{position:absolute;left:16px;bottom:18px;z-index:15;padding:12px 14px;
-  transition:transform .45s cubic-bezier(.16,1,.3,1)}
-#legend.low{transform:translateY(0)}
-#legend .key{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;color:#b9c8dc}
-.sw{width:11px;height:11px;border-radius:3px;flex:none}
+#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:18;
+  padding:17px 22px;text-align:center;display:none;pointer-events:none;
+  animation:rise .3s cubic-bezier(.16,1,.3,1)}
+#hint b{display:block;font:700 13.5px/1.3 var(--sans);margin-bottom:5px}
+#hint span{font:400 11.5px/1.55 var(--sans);color:var(--dim)}
 
-/* ---------- modal ---------- */
-#modal{position:absolute;inset:0;z-index:40;background:rgba(3,5,9,.8);
-  backdrop-filter:blur(8px);display:none;place-items:center;padding:40px}
-#modal.on{display:grid}
-.sheet{width:min(720px,100%);max-height:80vh;overflow-y:auto;padding:26px 28px}
-.sheet h2{font-size:18px;font-weight:800;letter-spacing:-.02em;margin-bottom:5px}
-.sheet .lede{font-size:12.5px;color:var(--dim);margin-bottom:20px;line-height:1.6}
-.case{padding:13px 0;border-top:1px solid var(--line)}
-.case .t{font-size:12.5px;font-weight:700;margin-bottom:4px}
-.case .d{font-size:11.5px;color:var(--dim);line-height:1.6}
-.case .n{font-family:var(--mono);color:var(--amber);font-weight:700}
-.sheet a{color:var(--water-now);text-decoration:none;font-size:10.5px}
-.sheet a:hover{text-decoration:underline}
-#modalClose{position:absolute;top:22px;right:26px;background:none;border:none;
-  color:var(--dim);font-size:26px;cursor:pointer;line-height:1}
-
-/* ---------- misc ---------- */
-#toast{position:absolute;bottom:18px;right:16px;max-width:330px;z-index:30;
-  padding:10px 34px 10px 14px;font-size:11px;line-height:1.5;color:var(--amber);
-  display:none;border-color:rgba(240,180,41,.4);cursor:pointer}
-#toast::after{content:'\00d7';position:absolute;top:8px;right:12px;font-size:15px;color:var(--faint)}
-#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:14;
-  padding:16px 22px;text-align:center;display:none;pointer-events:none}
-#hint b{display:block;font-size:14px;margin-bottom:4px}
-#hint span{font-size:11.5px;color:var(--dim)}
 #map.aim .maplibregl-canvas{cursor:crosshair}
-.pulse{width:14px;height:14px;border-radius:50%;background:var(--red);
-  box-shadow:0 0 0 0 rgba(255,91,82,.7);animation:pulse 1.8s infinite}
-@keyframes pulse{70%{box-shadow:0 0 0 16px rgba(255,91,82,0)}100%{box-shadow:0 0 0 0 rgba(255,91,82,0)}}
-  /* ---- certificate ---- */
-  .cert h3{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);
-    font-family:var(--mono);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px}
-  .chead{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
-  .cref{text-align:right;flex:none;font-family:var(--mono);font-size:10px;color:var(--dim)}
-  .cref b{display:block;font-size:12px;color:var(--text);margin-bottom:3px}
-  .cert-decision{margin:18px 0 10px;padding:14px 18px;border-radius:10px;font-weight:800;
-    font-size:17px;letter-spacing:.03em;border:1px solid}
-  .cert-decision.red{background:rgba(248,81,73,.14);color:#ff8880;border-color:rgba(248,81,73,.5)}
-  .cert-decision.violet{background:rgba(163,113,247,.14);color:#c9a6ff;border-color:rgba(163,113,247,.5)}
-  .cert-decision.amber{background:rgba(210,153,34,.13);color:#f3c65c;border-color:rgba(210,153,34,.5)}
-  .cert-decision.green{background:rgba(63,185,80,.13);color:#63d478;border-color:rgba(63,185,80,.5)}
-  .creason{margin:0 0 4px 18px;font-size:12px;line-height:1.7;color:#c3d2e6}
-  .creason li{margin-bottom:5px}
-  .crow{display:flex;justify-content:space-between;gap:20px;padding:5px 0;
-    border-bottom:1px solid rgba(140,170,220,.07);font-size:11.5px}
-  .crow span:first-child{color:var(--dim);flex:none;max-width:52%}
-  .crow span:last-child{text-align:right;font-family:var(--mono);font-size:11px}
-  .cfields{display:flex;gap:12px}
-  .cfields label{flex:1;font-size:10px;color:var(--faint);display:flex;flex-direction:column;gap:4px}
-  .cin{background:transparent;border:none;border-bottom:1px solid var(--line-hot);
-    color:var(--text);font-size:12px;padding:4px 2px;outline:none;font-family:var(--sans)}
-  .csnap{width:100%;border-radius:8px;border:1px solid var(--line);margin-top:4px}
-  .ccanon{font-family:var(--mono);font-size:9.5px;color:var(--dim);word-break:break-all;
-    background:rgba(140,170,220,.07);padding:9px 11px;border-radius:7px;line-height:1.6}
-  .cnote{font-size:11px;color:var(--dim);line-height:1.6;margin-top:8px}
-  .cbox{height:66px;border:1px solid var(--line-hot);border-radius:7px;margin-top:4px}
-  .ccheck{font-size:11.5px;color:var(--dim);margin-top:9px}
-  .csign{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-top:16px;
-    font-size:10px;color:var(--faint)}
-  .csign hr{border:none;border-top:1px solid var(--line-hot);margin-top:22px}
-  .cfoot{font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:20px;
-    border-top:1px solid var(--line);padding-top:12px}
 
-  /* Print the modal rather than generating a PDF: no library to load, no popup
-     for a blocker to eat, nothing that needs the network, and the document
-     stays on the projector while it prints. */
-  @media print{
-    html,body{background:#fff;color:#000;overflow:visible;height:auto}
-    #map,#top,#left,#right,#legend,#timeline,#toast,#hint,#boot,#modalClose,.noprint{display:none!important}
-    #modal{position:static;display:block!important;background:none;backdrop-filter:none;padding:0}
-    .sheet{width:100%;max-height:none;overflow:visible;border:none;box-shadow:none;
-      background:#fff;backdrop-filter:none;padding:0}
-    .cert *,.sheet *{color:#000!important}
-    .cert h3{color:#555!important;border-color:#bbb!important}
-    .crow{border-color:#ddd!important}
-    .cert-decision{border:2px solid #000!important;background:#fff!important}
-    .ccanon{background:#f4f4f4!important}
-    .cbox,.csign hr,.cin{border-color:#888!important}
-    .cfoot,.cnote{color:#444!important}
-  }
-#boot{position:absolute;inset:0;z-index:60;background:var(--ink);display:grid;place-items:center;
-  transition:opacity .7s;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.2em}
+/* The marker shows the PROBE DISC at its true radius, not a fixed dot. The
+   check reduces over a disc about a plot wide, and a 14 px dot said nothing
+   about how much ground that was — so a reader could not tell whether the
+   verdict came from their plot or from the lake fifty metres away. */
+.probe{position:relative;display:grid;place-items:center}
+.probe .disc{position:absolute;border-radius:50%;border:1px solid currentColor;
+  background:currentColor;opacity:.16}
+.probe .ring{position:absolute;border-radius:50%;border:1px dashed currentColor;opacity:.5}
+.probe .core{width:9px;height:9px;border-radius:50%;background:currentColor;
+  box-shadow:0 0 0 2px rgba(7,8,11,.8), 0 0 12px currentColor;z-index:2}
+.probe .pulse{position:absolute;width:11px;height:11px;border-radius:50%;
+  background:currentColor;animation:ping 2s cubic-bezier(0,0,.2,1) infinite}
+@keyframes ping{0%{transform:scale(1);opacity:.6}80%,100%{transform:scale(3.4);opacity:0}}
+
+/* ===========================================================================
+   MODAL
+   =========================================================================== */
+#modal{position:absolute;inset:0;z-index:50;background:rgba(4,5,8,.82);
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  display:none;place-items:center;padding:40px}
+#modal.on{display:grid;animation:fade .2s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet{width:min(740px,100%);max-height:84vh;overflow-y:auto;padding:28px 30px;
+  animation:rise .3s cubic-bezier(.16,1,.3,1)}
+.sheet h2{font:800 19px/1.25 var(--sans);letter-spacing:-.02em;margin-bottom:6px}
+.sheet .lede{font:400 12.5px/1.65 var(--sans);color:var(--dim);margin-bottom:22px}
+.case{padding:14px 0;border-top:1px solid var(--line)}
+.case .t{font:700 12.5px/1.3 var(--sans);margin-bottom:5px}
+.case .d{font:400 11.5px/1.65 var(--sans);color:var(--dim)}
+.case .n{font-family:var(--mono);color:var(--v-conditions);font-weight:700;
+  font-variant-numeric:tabular-nums}
+.sheet a{color:var(--accent);text-decoration:none;font-size:10.5px}
+.sheet a:hover{text-decoration:underline}
+#modalClose{position:absolute;top:24px;right:28px;background:var(--surface);
+  border:1px solid var(--line);color:var(--dim);width:32px;height:32px;border-radius:50%;
+  font-size:18px;cursor:pointer;line-height:1;display:grid;place-items:center;
+  transition:color .15s,border-color .15s}
+#modalClose:hover{color:var(--text);border-color:var(--line-hot)}
+
+/* ---------- certificate ----------
+   Screen styling is incidental: this exists to be printed, and the print block
+   below is the real design. */
+.cert h3{font:700 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint);margin:24px 0 9px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.chead{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+.cref{text-align:right;flex:none;font:400 10px/1.5 var(--mono);color:var(--dim)}
+.cref b{display:block;font-size:12px;color:var(--text);margin-bottom:3px}
+.cert-decision{margin:20px 0 11px;padding:15px 18px;border-radius:var(--r-md);
+  font:800 17px/1.2 var(--sans);letter-spacing:.02em;border:1px solid}
+.cert-decision.reject{background:rgba(255,95,87,.13);color:#ff8880;border-color:rgba(255,95,87,.5)}
+.cert-decision.refer{background:rgba(176,107,255,.13);color:#cfa6ff;border-color:rgba(176,107,255,.5)}
+.cert-decision.conditions{background:rgba(255,178,36,.12);color:#f3c65c;border-color:rgba(255,178,36,.5)}
+.cert-decision.clear{background:rgba(53,208,127,.12);color:#63d478;border-color:rgba(53,208,127,.5)}
+.creason{margin:0 0 4px 18px;font:400 12px/1.75 var(--sans);color:#c3d2e6}
+.creason li{margin-bottom:6px}
+.crow{display:flex;justify-content:space-between;gap:20px;padding:6px 0;
+  border-bottom:1px solid var(--line);font-size:11.5px}
+.crow span:first-child{color:var(--dim);flex:none;max-width:52%}
+.crow span:last-child{text-align:right;font-family:var(--mono);font-size:11px;
+  font-variant-numeric:tabular-nums}
+.cfields{display:flex;gap:14px}
+.cfields label{flex:1;font:600 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);display:flex;flex-direction:column;gap:5px}
+.cin{background:transparent;border:none;border-bottom:1px solid var(--line-hot);
+  color:var(--text);font:400 12px/1.4 var(--sans);padding:5px 2px;outline:none}
+.cin:focus{border-color:var(--accent)}
+.csnap{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);margin-top:5px}
+.ccanon{font:400 9.5px/1.65 var(--mono);color:var(--dim);word-break:break-all;
+  background:var(--sunken);padding:10px 12px;border-radius:var(--r-sm);
+  border:1px solid var(--line)}
+.cnote{font:400 11px/1.65 var(--sans);color:var(--dim);margin-top:9px}
+.cbox{height:66px;border:1px solid var(--line-hot);border-radius:var(--r-sm);margin-top:5px}
+.ccheck{font:400 11.5px/1.5 var(--sans);color:var(--dim);margin-top:10px}
+.csign{display:grid;grid-template-columns:1fr 1fr;gap:18px 26px;margin-top:18px;
+  font:600 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.csign hr{border:none;border-top:1px solid var(--line-hot);margin-top:24px}
+.cfoot{font:400 10.5px/1.7 var(--sans);color:var(--faint);margin-top:22px;
+  border-top:1px solid var(--line);padding-top:14px}
+
+/* Print the modal rather than generating a PDF: no library to load, no popup
+   for a blocker to eat, nothing that needs the network, and the document
+   stays on the projector while it prints. */
+@media print{
+  html,body{background:#fff;color:#000;overflow:visible;height:auto}
+  #map,#top,#left,#right,#legend,#dock,#toast,#hint,#boot,#modalClose,
+  #queueToggle,.noprint{display:none!important}
+  #modal{position:static;display:block!important;background:none;backdrop-filter:none;padding:0}
+  .sheet{width:100%;max-height:none;overflow:visible;border:none;box-shadow:none;
+    background:#fff;backdrop-filter:none;padding:0;animation:none}
+  .cert *,.sheet *{color:#000!important}
+  .cert h3{color:#555!important;border-color:#bbb!important}
+  .crow{border-color:#ddd!important}
+  .cert-decision{border:2px solid #000!important;background:#fff!important}
+  .ccanon{background:#f4f4f4!important;border-color:#bbb!important}
+  .cbox,.csign hr,.cin{border-color:#888!important}
+  .cfoot,.cnote{color:#444!important}
+}
+
+/* ===========================================================================
+   BOOT
+   =========================================================================== */
+#boot{position:absolute;inset:0;z-index:60;background:var(--ink);display:grid;
+  place-items:center;transition:opacity .6s;gap:0}
 #boot.gone{opacity:0;pointer-events:none}
+.bootin{display:flex;flex-direction:column;align-items:center;gap:16px}
+.bootbar{width:150px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.bootbar i{display:block;height:100%;width:38%;border-radius:2px;background:var(--accent);
+  animation:sweep 1.25s cubic-bezier(.65,0,.35,1) infinite}
+@keyframes sweep{0%{transform:translateX(-110%)}100%{transform:translateX(370%)}}
+#boot span{font:600 10px/1 var(--mono);letter-spacing:.24em;color:var(--faint);
+  text-transform:uppercase}
+
+/* ===========================================================================
+   NARROW
+   Not a phone design. This is a desk tool: rails over a map, meant for a
+   monitor. What this block does is stop it BREAKING on a small screen — the
+   dock's 440 px floor and the header's non-wrapping row together push the
+   document wider than the viewport and produce horizontal scroll, which makes
+   the map undraggable. Single column, secondary furniture dropped, and the
+   controls that decide something kept.
+   =========================================================================== */
+@media (max-width:1100px){
+  :root{--rail-l:292px;--rail-r:340px}
+  #left{width:264px} #right{width:312px}
+  .segmented button{padding:8px 12px;font-size:11.5px}
+  .segmented button .sd{display:none}
+}
+@media (max-width:900px){
+  /* No left rail at all here, so the dock only has to clear the legend. */
+  :root{--rail-l:196px;--rail-r:340px}
+  #csvBtn span,#validateBtn span{display:none}
+  #csvBtn,#validateBtn{padding:8px 9px}
+  #left{display:none} #queueToggle{display:none}
+}
+@media (max-width:700px){
+  #top{height:auto;min-height:52px;flex-wrap:wrap;gap:8px;padding:8px 10px}
+  .brand em,.vr{display:none}
+  .brand b{font-size:12.5px}
+  #city{max-width:140px;font-size:11px}
+  .segmented{margin-left:auto;margin-right:0}
+  .segmented button{padding:7px 10px;font-size:11px}
+  #validateBtn{display:none}
+  #legend{display:none}
+  #right{left:10px;right:10px;width:auto;top:auto;
+    bottom:calc(var(--dock-gap) + 132px);max-height:46vh}
+  #dock{left:10px;right:10px;max-width:none;bottom:10px}
+  #timeline{padding:11px 13px}
+  #play{width:34px;height:34px}
+  #year{font-size:18px}
+  #caption{display:none}
+  .ticks{font-size:8.5px}
+  .drivers{grid-template-columns:1fr}
+  #toast{left:10px;right:10px;transform:none;max-width:none}
+}
 </style>
 </head>
 <body>
@@ -286,57 +607,127 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
 <div id="map"></div>
 
 <header id="top">
-  <div class="brand"><b>VANISHED BLUE GRID</b><i>FORENSIC</i></div>
-  <select id="city"></select>
-  <div class="tabs" id="modes">
-    <button data-mode="timeline" class="on">Timeline</button>
-    <button data-mode="approval">Plot check</button>
-    <button data-mode="impact">Downstream</button>
+  <div class="brand">
+    <span class="mark">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="20" height="20" rx="5" stroke="rgba(255,255,255,.18)"/>
+        <path d="M4.5 13.2c1.6 0 1.6-2.2 3.2-2.2s1.6 2.2 3.2 2.2 1.6-2.2 3.2-2.2 1.6 2.2 3.2 2.2"
+              stroke="#4d9fff" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M4.5 8.4c1.6 0 1.6-2.2 3.2-2.2s1.6 2.2 3.2 2.2"
+              stroke="#1f6feb" stroke-width="1.5" stroke-linecap="round" opacity=".6"/>
+        <path d="M12 16.6h5.3" stroke="#ff5f57" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <b>Vanished Blue Grid</b><em>FORENSIC</em>
   </div>
-  <div id="ruleBar">
-    <select id="ruleSel" title="Which buffer regime to apply"></select>
-    <label>Plot <input id="plotM" type="number" min="5" max="300" step="5" value="30"> m</label>
+
+  <span class="vr"></span>
+  <select id="city" title="Study area"></select>
+
+  <div class="segmented" id="modes">
+    <button data-mode="timeline" class="on"><span class="sd"></span>Timeline</button>
+    <button data-mode="approval"><span class="sd"></span>Plot check</button>
+    <button data-mode="impact"><span class="sd"></span>Downstream</button>
   </div>
-  <button class="ghost" id="validateBtn">Validation</button>
-  <button class="ghost" id="csvBtn">Export CSV</button>
+
+  <button class="btn" id="validateBtn" title="How this compares with the municipal record">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1.2l4.6 2v3.9c0 2.8-1.9 4.7-4.6 5.7-2.7-1-4.6-2.9-4.6-5.7V3.2L7 1.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 7l1.5 1.5L9.4 5.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Validation</span>
+  </button>
+  <button class="btn" id="csvBtn" title="Download the ranked list as CSV">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1.6v7.6m0 0L4.2 6.4M7 9.2l2.8-2.8M2 11.3h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Export CSV</span>
+  </button>
 </header>
 
-<aside id="left">
-  <div class="glass card" style="display:flex;flex-direction:column;min-height:0">
-    <h3 id="leftTitle">Priority sites</h3>
-    <div class="scroll" id="list" style="margin:-4px -6px"></div>
+<button class="btn panel over-map" id="queueToggle" title="Show the ranked list">
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M2 7h10M2 10.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+  <span id="queueToggleLabel">Sites</span>
+</button>
+
+<aside id="left" class="panel over-map">
+  <div class="phead">
+    <span class="lbl" id="leftTitle">Priority sites</span>
+    <span class="pill" id="leftCount"></span>
+    <button class="iconbtn" id="queueHide" title="Hide">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M4 2.5L8.5 7 4 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
+  <div class="scroll" id="list"></div>
 </aside>
 
 <aside id="right">
-  <div class="glass card" id="statsCard">
-    <h3 id="statsTitle">Catchment ledger</h3>
-    <div id="stats"></div>
-    <div class="bar"><i id="lossBar" style="width:0"></i></div>
+  <div class="scroll" id="rightScroll">
+    <section class="panel over-map" id="paramsBar">
+      <div class="pfield">
+        <span class="lbl">Rule</span>
+        <select id="ruleSel" title="Which buffer regime to apply"></select>
+      </div>
+      <div class="pfield">
+        <span class="lbl">Plot</span>
+        <span class="numin">
+          <input id="plotM" type="number" min="5" max="300" step="5" value="30"
+                 title="Assumed plot frontage; sets the probe radius">
+          <span>m frontage</span>
+        </span>
+      </div>
+    </section>
+
+    <section class="panel over-map" id="verdict"></section>
+
+    <section class="panel over-map" id="statsCard">
+      <div class="phead"><span class="lbl" id="statsTitle">Catchment ledger</span></div>
+      <div id="stats"></div>
+      <div class="bar"><i id="lossBar" style="width:0"></i></div>
+    </section>
   </div>
-  <div class="glass card" id="verdict"></div>
 </aside>
 
-<div class="glass" id="legend"></div>
-<div class="glass" id="toast"></div>
-<div class="glass" id="hint"></div>
+<div class="panel over-map" id="legend"></div>
+<div class="panel over-map" id="toast"></div>
+<div class="panel over-map" id="hint"></div>
 
-<footer class="glass" id="timeline">
-  <div class="trow">
-    <button id="play">&#9654;</button>
-    <div class="tcore">
-      <div class="thead">
-        <div id="year">2003&ndash;07</div>
-        <div id="caption">The blue grid as the satellite record found it.</div>
-      </div>
-      <input type="range" id="slider" min="0" max="100" value="0">
-      <div class="ticks"><span>2003&ndash;07 &middot; Landsat 5</span><span>crossfade</span><span>Sentinel-2 &middot; 2023&ndash;25</span></div>
+<div id="dock">
+  <section class="panel over-map" id="answerPanel">
+    <div class="ahead" id="answerHead"></div>
+    <div class="scroll" id="answer"></div>
+  </section>
+
+  <div id="askDock">
+    <div class="chips" id="askChips"></div>
+    <div class="panel over-map askbar">
+      <span class="qi">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.3"/><path d="M6.2 6.3c.15-.9.93-1.5 1.86-1.5 1.03 0 1.85.72 1.85 1.66 0 1.5-1.8 1.4-1.8 2.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.05" cy="11.2" r=".78" fill="currentColor"/></svg>
+      </span>
+      <input id="askQ" placeholder="Ask about this plot…" autocomplete="off" spellcheck="false">
+      <kbd id="askHint">&#8629;</kbd>
+      <button class="btn primary" id="askBtn">Ask</button>
     </div>
   </div>
-</footer>
 
-<div id="modal"><div class="glass sheet" id="sheet"></div><button id="modalClose">&times;</button></div>
-<div id="boot">READING THE SATELLITE RECORD</div>
+  <footer class="panel over-map" id="timeline">
+    <div class="trow">
+      <button id="play" title="Play the transition (space)">&#9654;</button>
+      <div class="tcore">
+        <div class="thead">
+          <div id="year">2003&ndash;07</div>
+          <div id="caption">The blue grid as the satellite record found it.</div>
+        </div>
+        <input type="range" id="slider" min="0" max="100" value="0">
+        <div class="ticks"><span>2003&ndash;07 &middot; Landsat 5</span><span>crossfade</span><span>Sentinel-2 &middot; 2023&ndash;25</span></div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div id="modal"><div class="panel sheet" id="sheet"></div><button id="modalClose">&times;</button></div>
+
+<div id="boot">
+  <div class="bootin">
+    <div class="bootbar"><i></i></div>
+    <span>Reading the satellite record</span>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -393,10 +784,10 @@ var BLANK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
 // which binds them, so the tool applies the rule it is told to and records
 // which one on the certificate.
 var RULESETS = {
-  state: {id:'state', label:'State revision \u2014 30 m lake buffer',
+  state: {id:'state', label:'State revision \u00b7 30 m lake',
           lakeM:30, drainM:25,
           cite:'State revision of the NGT buffer, as applied by BBMP.'},
-  ngt:   {id:'ngt', label:'NGT / Supreme Court \u2014 75 m lake buffer',
+  ngt:   {id:'ngt', label:'NGT / Supreme Court \u00b7 75 m lake',
           lakeM:75, drainM:50,
           cite:'NGT O.A. 222/2014 (Forward Foundation v. State of Karnataka), '
              + 'upheld by the Supreme Court and applied prospectively.'}
@@ -454,7 +845,8 @@ var state = {
   // The retrieval layer. corpus is city-agnostic and fetched once; centroids
   // is rebuilt per city; lastAnswer is kept so a ruleset change can invalidate
   // an answer that was reasoned under the rule the officer has just left.
-  corpus: null, centroids: null, lastAnswer: null, asking: false
+  corpus: null, centroids: null, lastAnswer: null, asking: false,
+  queueOpen: true, probeEl: null
 };
 
 // ===========================================================================
@@ -661,7 +1053,10 @@ function loadCity(key){
   state.city = key;
   var c = CITIES[key];
   state.samplers = {}; state.have = {}; state.selected = null; state.ready = false;
-  document.getElementById('verdict').style.display='none';
+  // classList, not an inline style: an inline display:none outranks the
+  // #verdict.on rule, so the next verdict rendered would never become visible.
+  document.getElementById('verdict').classList.remove('on');
+  hideAskDock();
   if(state.marker){ state.marker.remove(); state.marker=null; }
 
   // Painting the map must not wait on the plot-check lookup tables. Decoding
@@ -834,19 +1229,41 @@ function setMode(m){
   });
   applyMode();
 }
+// The queue is a browsing aid and the map click is the input, so the rail
+// opens where browsing is the point and gets out of the way where it is not.
+function setQueue(open){
+  state.queueOpen = open;
+  document.getElementById('left').classList.toggle('collapsed', !open);
+  document.getElementById('queueToggle').classList.toggle('show', !open);
+  // 196 px still clears the legend, which stays in the bottom-left corner
+  // whether or not the queue is open.
+  document.documentElement.style.setProperty('--rail-l', open ? '' : '196px');
+}
+
+var hintTimer = null;
 function applyMode(){
   var m = state.mode;
-  document.getElementById('map').classList.toggle('aim', m==='approval');
-  document.getElementById('ruleBar').classList.toggle('on', m==='approval');
-  document.getElementById('timeline').classList.toggle('hid', m!=='timeline');
+  document.getElementById('map').classList.toggle('aim', m === 'approval');
+  document.getElementById('paramsBar').classList.toggle('on', m === 'approval');
+
+  // One dock, two occupants, never both. The timeline owns it in timeline
+  // mode; the ask bar owns it wherever a site can be interrogated.
+  document.getElementById('timeline').classList.toggle('hid', m !== 'timeline');
+  if(m === 'timeline'){ hideAskDock(); } else if(state.lastCheck){ showAskDock(); }
+
+  setQueue(m !== 'approval');
 
   var hint = document.getElementById('hint');
-  if(m==='approval'){
-    hint.innerHTML = '<b>Click any plot on the map</b><span>The same rasters drawn here are read back pixel by pixel — no server, no lookup.</span>';
-    hint.style.display='block'; setTimeout(function(){hint.style.display='none';}, 4200);
-  } else hint.style.display='none';
+  clearTimeout(hintTimer);
+  if(m === 'approval' && !state.lastCheck){
+    hint.innerHTML = '<b>Click any plot on the map</b>'
+      + '<span>The same rasters drawn here are read back pixel by pixel '
+      + '\u2014 no server, no lookup.</span>';
+    hint.style.display = 'block';
+    hintTimer = setTimeout(function(){ hint.style.display = 'none'; }, 4600);
+  } else hint.style.display = 'none';
 
-  if(m!=='timeline'){ stop(); state.t = 1; slider.value = 100; }
+  if(m !== 'timeline'){ stop(); state.t = 1; slider.value = 100; }
   renderStats(); renderLegend(); update();
 }
 document.querySelectorAll('#modes button').forEach(function(b){
@@ -910,8 +1327,12 @@ function readSite(lngLat){
 function sig2(x){
   if(x === null || !isFinite(x)) return null;
   if(x === 0) return 0;
-  var mag = Math.pow(10, Math.floor(Math.log(Math.abs(x))/Math.LN10) - 1);
-  return Math.round(x/mag) * mag;
+  // toPrecision, not round-to-magnitude. Rounding to a power of ten and
+  // multiplying back is exact in decimal and not in binary: 140 × 0.01 is
+  // 1.4000000000000001, and that artifact reached the screen as a catchment
+  // area quoted to seventeen significant figures on a panel whose whole claim
+  // is that it never states more precision than it has.
+  return parseFloat(x.toPrecision(2));
 }
 
 function classifyFlow(distDrain, drainM){
@@ -1074,12 +1495,51 @@ function decide(m, rule){
   if(m.distHistoric === 0){
     var when = m.lastWaterYear ? 'last recorded as water in ' + m.lastWaterYear
                                : 'recorded as water before 2000';
+
     if(m.occurrence >= 50){
       var w = ['The plot sits on a former water body, ' + when + ', water in '
         + occ + ' of observations.'];
       if(m.encroached > .1) w.push('Construction is already present on this footprint.');
       return {d:'REJECT', codes:['reject.former-water-high-occurrence'], why:w};
     }
+
+    // Occurrence alone cannot carry this branch, and reading it that way
+    // inverts the tool against its own purpose. JRC occurrence is the share of
+    // observations that were water across 1984-2021, so a tank drained and
+    // built over part-way through the window scores LOW precisely BECAUSE it
+    // was destroyed — the more completely it was encroached, the weaker the
+    // only signal that was being allowed to reject it. A bed filled in 2017
+    // came back at sixteen per cent and screened as an unresolved wet season.
+    //
+    // Two corroborating signals settle it, both already measured and, until
+    // now, both sampled and then discarded here.
+    var built = m.encroached > .1;
+    var atChannel = m.handM !== null && m.handM <= PARAMS.handDeepM;
+
+    // Construction standing on a mapped former bed is not an ambiguous record.
+    // It is the encroachment this tool was built to find, and the red the map
+    // is already painting under the click.
+    if(built)
+      return {d:'REJECT', codes:['reject.construction-on-former-bed'],
+        why:['The plot sits on a former water body, ' + when + ', and construction '
+          + 'already stands on that footprint.',
+          occ ? 'Water occurrence reads ' + occ + ' of observations, which is low '
+            + 'because the record spans the period in which the bed was lost: a '
+            + 'tank drained part-way through 1984–2021 is dry for the remainder '
+            + 'of it. The low share is evidence of the loss, not evidence against it.'
+            : 'How often it held water is not recorded at this pixel.']};
+
+    // A bed still sitting at the level of the channel it drained into is a
+    // tank on the terrain even where the water record is thin.
+    if(atChannel)
+      return {d:'REFER', codes:['refer.intermittent-water'],
+        why:['The plot sits on land recorded as water ' + (occ ? 'only ' + occ
+            + ' of the time, ' : '') + when + ', and stands at the level of the '
+          + 'channel it drains into.',
+          'Low occurrence on a bed at channel level does not resolve to a wet '
+          + 'season: it is equally the signature of a tank lost during the record. '
+          + 'Establish the boundary against the notified tank schedule.']};
+
     return {d:'REFER', codes:['refer.intermittent-water'],
       why:[occ
         ? 'The plot sits on land recorded as water only ' + occ + ' of the time, '
@@ -1153,6 +1613,7 @@ var CODE_CHUNK = {
   'refer.outside-study-area':          'refusal.outside-study-area',
   'reject.inside-live-water':          'outcome.reject.meaning',
   'reject.former-water-high-occurrence':'outcome.reject.meaning',
+  'reject.construction-on-former-bed':  'outcome.reject.meaning',
   'refer.intermittent-water':          'outcome.refer.meaning',
   'reject.inside-buffer':              'outcome.reject.meaning',
   'refer.buffer-within-uncertainty':   'error.budget.combined-20m',
@@ -1172,13 +1633,114 @@ var ASK_CHIPS = [
 ];
 
 var OUTCOME = {
-  REJECT:       {c:'red',    ic:'✕', t:'REJECT'},
-  REFER:        {c:'violet', ic:'?',      t:'REFER TO GROUND SURVEY'},
-  CONDITIONS:   {c:'amber',  ic:'⚠', t:'CONDITIONS REQUIRED'},
-  NO_OBJECTION: {c:'green',  ic:'✓', t:'NO RECORDED OBJECTION'}
+  REJECT:       {c:'reject',     ic:'✕', t:'REJECT'},
+  REFER:        {c:'refer',      ic:'?',      t:'REFER TO GROUND SURVEY'},
+  CONDITIONS:   {c:'conditions', ic:'!',      t:'CONDITIONS REQUIRED'},
+  NO_OBJECTION: {c:'clear',      ic:'✓', t:'NO RECORDED OBJECTION'}
 };
 
 function metres(v){ return v === null ? '—' : v >= 255 ? '> 255 m' : v + ' m'; }
+
+// ---------------------------------------------------------------------------
+// DRIVERS — the measurements that actually produced the verdict
+// ---------------------------------------------------------------------------
+// The old panel rendered eleven rows at one size, so "0 m to the 1984-99 edge"
+// — the finding the whole tool exists to make — was set in the same 14 px as
+// "plot frontage assumed", which is a value the officer typed in themselves.
+// decide() already tags which branch it took, so the two numbers behind the
+// verdict can be lifted out of the table and given the size they earned.
+function driversFor(ck){
+  var m = ck.m, out = ck.out, rule = ck.rule, rec = ck.ctx.rec;
+  var codes = out.codes || [];
+  function has(c){ return codes.indexOf(c) !== -1; }
+  var D = [];
+  function add(k, v, n, tone){ D.push({k:k, v:v, n:n, tone:tone}); }
+
+  if(has('refer.outside-study-area'))
+    add('Coverage', 'None', 'outside the mapped study area');
+
+  if(has('reject.inside-live-water'))
+    add('Inside live water', '0 m', 'to the present water edge', 'hot');
+
+  if(has('reject.former-water-high-occurrence') || has('reject.construction-on-former-bed')
+     || has('refer.intermittent-water')){
+    add('On the 1984–99 bed', '0 m', 'to the earlier water edge', 'hot');
+    if(has('reject.construction-on-former-bed'))
+      add('Already built', Math.round(rec.encroached*100) + '%', 'of the probe reads as construction', 'hot');
+    else if(m.occurrence !== null)
+      add('Water occurrence', m.occurrence + '%', 'of observations, 1984–2021',
+          m.occurrence >= 50 ? 'hot' : null);
+  }
+
+  if(has('reject.inside-buffer') || has('refer.buffer-within-uncertainty'))
+    add('To water edge', m.distPresent + ' m',
+        'against a ' + rule.lakeM + ' m buffer, ±' + UNCERTAINTY_M + ' m',
+        has('reject.inside-buffer') ? 'hot' : 'warn');
+
+  // The finding worth demonstrating, so it leads whenever it fires.
+  if(has('refer.shoreline-disagreement')){
+    D.unshift({k:'To 1984–99 edge', v:m.distHistoric + ' m',
+               n:'inside the ' + rule.lakeM + ' m buffer', tone:'hot'});
+    D.unshift({k:'Shoreline retreat', v:rec.retreatM + ' m',
+               n:'the two records disagree by this much here', tone:'warn'});
+  }
+
+  if(has('refer.near-drainage'))
+    add('To drainage line', m.distDrain + ' m',
+        'against a ' + rule.drainM + ' m buffer', 'warn');
+
+  if(has('conditions.low-ground'))
+    add('Above drainage', m.handM + ' m', 'retention and a plinth condition', 'warn');
+
+  if(has('no-objection.nothing-found')){
+    add('To water edge', metres(m.distPresent), 'nearest recorded water', 'ok');
+    add('To drainage line', metres(m.distDrain), 'nearest terrain channel', 'ok');
+  }
+
+  if(!D.length){
+    add('To water edge today', metres(m.distPresent));
+    add('To 1984–99 edge', metres(m.distHistoric));
+  }
+  return D.slice(0, 2);
+}
+
+// ---------------------------------------------------------------------------
+// THE PROBE MARKER
+// ---------------------------------------------------------------------------
+// The check reduces over a disc about a plot wide, and the old marker was a
+// fixed 14 px dot at every zoom. That told the reader nothing about how much
+// ground the verdict was drawn from — whether it came from their plot or from
+// the lake fifty metres beyond it. This draws the disc at its true radius and
+// keeps it true as the map zooms.
+function probeRadiusM(){ return Math.max(6, state.plotM / 2); }
+
+function metresPerPixel(lat){
+  return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, map.getZoom());
+}
+
+function sizeProbe(){
+  if(!state.marker || !state.probeEl) return;
+  var ll = state.marker.getLngLat();
+  var px = probeRadiusM() / metresPerPixel(ll.lat);
+  var d = Math.max(10, px * 2);
+  var disc = state.probeEl.querySelector('.disc');
+  var ring = state.probeEl.querySelector('.ring');
+  disc.style.width = disc.style.height = d + 'px';
+  ring.style.width = ring.style.height = (d + 10) + 'px';
+}
+map.on('zoom', sizeProbe);
+
+function placeProbe(lngLat, tone){
+  if(state.marker) state.marker.remove();
+  var el = document.createElement('div');
+  el.className = 'probe';
+  el.style.color = 'var(--v-' + tone + ')';
+  el.innerHTML = '<span class="disc"></span><span class="ring"></span>'
+               + '<span class="pulse"></span><span class="core"></span>';
+  state.probeEl = el;
+  state.marker = new maplibregl.Marker({element: el}).setLngLat(lngLat).addTo(map);
+  sizeProbe();
+}
 
 function checkPlot(lngLat){
   var S = state.samplers;
@@ -1192,15 +1754,10 @@ function checkPlot(lngLat){
   state.lastCheck = {m:m, out:out, ctx:ctx, lngLat:lngLat, rule:rule, at:new Date()};
   // A new site invalidates the answer about the old one.
   state.lastAnswer = null;
-  var prev = document.getElementById('answer');
-  if(prev) prev.style.display = 'none';
+  hideAnswer();
 
   var st = OUTCOME[out.d];
-  if(state.marker) state.marker.remove();
-  var el = document.createElement('div'); el.className = 'pulse';
-  el.style.background = st.c==='green' ? 'var(--green)' : st.c==='amber' ? 'var(--amber)'
-                      : st.c==='violet' ? 'var(--violet)' : 'var(--red)';
-  state.marker = new maplibregl.Marker({element:el}).setLngLat(lngLat).addTo(map);
+  placeProbe(lngLat, st.c);
 
   var rows = [
     ['Coordinates', lngLat.lat.toFixed(5) + ', ' + lngLat.lng.toFixed(5)],
@@ -1220,7 +1777,8 @@ function checkPlot(lngLat){
   ];
 
   showVerdict({c:st.c, ic:st.ic, t:st.t, s:out.why.join(' ')}, rows, null,
-              [{label:'Issue screening certificate', fn:issueCertificate}]);
+              [{label:'Issue screening certificate', fn:issueCertificate, primary:true}],
+              driversFor(state.lastCheck));
 }
 
 function selectBuilding(f){
@@ -1232,6 +1790,8 @@ function selectBuilding(f){
   // thing. Without this a question asked after a building click would answer
   // about whichever plot happened to be clicked before it.
   state.lastAnswer = null;
+  hideAnswer();
+  var drivers = null;
   if(state.samplers.buffers){
     var ctr = centroidOf(f);
     var ll = {lng: ctr[0], lat: ctr[1]};
@@ -1240,12 +1800,25 @@ function selectBuilding(f){
     state.lastCheck = {m: ctx.m, out: ctx.verdict, ctx: ctx, lngLat: ll,
                        rule: rule, at: new Date()};
   }
-  var red = p.verdict && p.verdict.indexOf('RED')===0;
   var r = p.verdict==='RED_FORMER_WATER_BODY'
-      ? {c:'red', ic:'✕', t:'BUILT ON FORMER WATER BODY', s:'Footprint overlaps land classified as surface water before 2000.'}
+      ? {c:'reject', ic:'✕', t:'BUILT ON FORMER WATER BODY',
+         s:'Footprint overlaps land classified as surface water before 2000.'}
     : p.verdict==='RED_BLOCKS_DRAINAGE'
-      ? {c:'amber', ic:'⚠', t:'BLOCKS A NATURAL DRAINAGE PATH', s:'Footprint sits on a terrain channel carrying upstream runoff.'}
-      : {c:'amber', ic:'⚠', t:'PARTIAL OVERLAP', s:'Part of the footprint falls on former water or a drainage path.'};
+      ? {c:'conditions', ic:'!', t:'BLOCKS A NATURAL DRAINAGE PATH',
+         s:'Footprint sits on a terrain channel carrying upstream runoff.'}
+      : {c:'conditions', ic:'!', t:'PARTIAL OVERLAP',
+         s:'Part of the footprint falls on former water or a drainage path.'};
+
+  // A flagged footprint carries its own per-polygon measurements, computed in
+  // Earth Engine against the geometry itself. Those are better evidence than
+  // the disc reduction, so they are what gets promoted.
+  drivers = [
+    {k:'Footprint on former water', v:Math.round(p.lost_frac*100) + '%',
+     n:'of the polygon area', tone: p.lost_frac > .5 ? 'hot' : 'warn'},
+    {k:'Catchment blocked', v:(+p.upstream_km2).toFixed(2) + ' km²',
+     n:'drains through this structure', tone: +p.upstream_km2 > 1 ? 'hot' : null}
+  ];
+
   var rows = [
     ['Risk score', (+p.risk_score).toFixed(1)],
     ['Footprint on former water', Math.round(p.lost_frac*100)+'%'],
@@ -1255,50 +1828,72 @@ function selectBuilding(f){
     ['Building area', Math.round(p.area_in_meters)+' m²'],
     ['Footprint confidence', Math.round(p.confidence*100)+'%']
   ];
-  showVerdict(r, rows, p);
+  showVerdict(r, rows, p, null, drivers);
 }
 
-function showVerdict(r, rows, p, actions){
+var CHEV = '<svg class="chev" width="11" height="11" viewBox="0 0 12 12" fill="none">'
+  + '<path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.5" '
+  + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function showVerdict(r, rows, p, actions, drivers){
   var el = document.getElementById('verdict');
+  drivers = (drivers || []).filter(Boolean);
+  actions = (actions || []).slice();
+  if(p) actions.push({label:'Generate evidence brief', fn:function(){ writeBrief(p); }});
+
   el.innerHTML =
-    '<div class="vbadge '+r.c+'"><span class="ic">'+r.ic+'</span><span>'+r.t+'</span></div>' +
-    '<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:12px">'+r.s+'</div>' +
-    rows.map(function(x){
-      return '<div class="metric"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span></div>';
-    }).join('') +
-    (actions||[]).map(function(a,i){
-      return '<button class="act" data-act="'+i+'">'+a.label+'</button>';
-    }).join('') +
-    (p ? '<button class="act" id="briefBtn">Generate evidence brief</button>' : '') +
-    (state.lastCheck ?
-      '<div class="asker">' +
-        '<div class="chips">' + ASK_CHIPS.map(function(q,i){
-          return '<button class="chip" data-q="'+i+'">'+q[0]+'</button>'; }).join('') +
-        '</div>' +
-        '<div class="askrow"><input id="askQ" placeholder="Ask about this plot…" ' +
-          'autocomplete="off"><button class="act" id="askBtn">Ask</button></div>' +
-      '</div>' : '') +
-    '<div id="answer"></div>';
-  // A verdict is the answer to the question just asked, so it goes to the top
-  // of the rail and the rail scrolls to it. On a short window it would
-  // otherwise render below the fold, which loses the whole point.
-  var rail = document.getElementById('right');
-  rail.insertBefore(el, rail.firstChild);
-  el.style.display='block';
-  el.style.animation='none'; void el.offsetWidth; el.style.animation='';
-  rail.scrollTop = 0;
-  if(p) document.getElementById('briefBtn').onclick = function(){ writeBrief(p); };
-  var askQ = document.getElementById('askQ');
-  if(askQ){
-    document.getElementById('askBtn').onclick = function(){ ask(askQ.value); };
-    askQ.onkeydown = function(e){ if(e.key === 'Enter') ask(askQ.value); };
-    el.querySelectorAll('.chip').forEach(function(b){
-      b.onclick = function(){ askQ.value = ASK_CHIPS[+b.dataset.q][1]; ask(askQ.value); };
-    });
-  }
-  (actions||[]).forEach(function(a,i){
-    el.querySelector('[data-act="'+i+'"]').onclick = a.fn;
+    '<div class="vbanner ' + r.c + '">' +
+      '<div class="vrow"><span class="vic"><span>' + r.ic + '</span></span>' +
+        '<span class="vt">' + esc(r.t) + '</span></div>' +
+      '<div class="vsub">' + esc(r.s) + '</div>' +
+    '</div>' +
+
+    (drivers.length
+      ? '<div class="drivers' + (drivers.length === 1 ? ' one' : '') + '">' +
+          drivers.map(function(d){
+            return '<div class="driver' + (d.tone ? ' ' + d.tone : '') + '">' +
+              '<span class="dk">' + esc(d.k) + '</span>' +
+              '<span class="dv">' + esc(d.v) + '</span>' +
+              (d.n ? '<span class="dn">' + esc(d.n) + '</span>' : '') + '</div>';
+          }).join('') +
+        '</div>'
+      : '') +
+
+    // Collapsed by default once drivers are carrying the finding. The full
+    // table stays one click away because the certificate reproduces it and an
+    // officer will want to see on screen what they are about to sign.
+    '<details class="fold"' + (drivers.length ? '' : ' open') + '>' +
+      '<summary>' + CHEV + '<span class="lbl">All measurements</span>' +
+        '<span class="pill">' + rows.length + '</span></summary>' +
+      '<div class="foldbody">' +
+        rows.map(function(x){
+          return '<div class="metric"><span class="k">' + esc(x[0]) +
+            '</span><span class="v">' + esc(x[1]) + '</span></div>';
+        }).join('') +
+      '</div>' +
+    '</details>' +
+
+    (actions.length ? '<div class="vactions">' + actions.map(function(a,i){
+      return '<button class="btn' + (a.primary ? ' primary' : '') +
+        '" data-act="' + i + '">' + esc(a.label) + '</button>';
+    }).join('') + '</div>' : '');
+
+  actions.forEach(function(a,i){
+    el.querySelector('[data-act="' + i + '"]').onclick = a.fn;
   });
+
+  el.classList.add('on');
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  document.getElementById('rightScroll').scrollTop = 0;
+  // The catchment ledger describes the whole study area. Once a specific plot
+  // is on screen the rail belongs to that plot, and leaving a city-wide figure
+  // above it was what pushed the verdict below the fold.
+  document.getElementById('statsCard').style.display =
+    state.mode === 'approval' ? 'none' : '';
+
+  // The ask bar is docked and persistent now, so showing a verdict reveals it
+  // rather than rebuilding it inside the panel.
+  showAskDock();
 }
 
 // The evidence brief and the free-text answer are the same product asked a
@@ -1504,7 +2099,7 @@ function renderCertificate(ck, snap){
         + 'so absence of a finding is not evidence of absence. This document neither '
         + 'grants nor refuses permission.</p>' +
 
-      '<button class="act noprint" id="printCert">Print / save as PDF</button>' +
+      '<button class="btn primary noprint" id="printCert" style="width:100%;justify-content:center;margin-top:18px">Print / save as PDF</button>' +
     '</div>';
 
   document.getElementById('modal').classList.add('on');
@@ -1534,9 +2129,20 @@ function renderCertificate(ck, snap){
 // client scores a query against postings built for a different vocabulary and
 // nothing anywhere reports an error.
 var STOP = {};
-('a an the and or of to in on at is are was were be been it its this that these '
-+'those for from with as by if then than so such not no').split(' ')
-  .forEach(function(w){ STOP[w] = 1; });
+('a an the and or of to in on at is are was were be been it its this '
++'that these those for from with as by if then than so such not no '
+// Interrogatives and auxiliaries. Without them "what is this tool and what
+// does it do" tokenises to "what tool what does do", and BM25 ranks every
+// chunk whose title starts "What a ..." — most of the outcome group — above
+// the one chunk that answers the question.
++'what which who whom whose when where why how '
++'do does did done doing can could will would shall should may might must '
++'have has had having am being '
++'i me my we us our you your he she him her they them their '
++'about into onto over under above below out up down '
++'again more most other some any all both each few own same too very just now '
++'here there thing things okay ok please tell say').split(' ')
+  .forEach(function(w){ if(w) STOP[w] = 1; });
 
 function tok(s){
   return String(s).toLowerCase().split(/[^a-z0-9]+/).filter(function(t){
@@ -1763,8 +2369,30 @@ function retrieve(question, rec){
               conflicts:c.conflicts, never_alone:c.never_alone, why:why});
   }
   forced.forEach(function(f){ push(byId[f[0]], f[1], true); });
-  scored.slice(0, PACK_K + 8).forEach(function(x){
-    if(out.length < Math.min(PACK_CAP, forced.length + PACK_K)) push(x.c, x.why);
+
+  // A reserved lane for what was actually asked.
+  //
+  // Weighting triggers at 0.65 is right for ordering — site state should beat
+  // wording — but it has a failure mode. A trigger that fires scores 0.65
+  // while a perfect lexical match tops out near 0.50, and roughly ten chunks
+  // trigger at any real plot. So the lexical channel could never break into
+  // the pack at all: asking "where does the water data come from" returned ten
+  // chunks about the plot and not the one describing the water source.
+  //
+  // Three slots go to the best purely lexical matches, ranked on that score
+  // alone. Triggers still dominate the ordering of everything else; this only
+  // guarantees the question is heard.
+  var LEX_LANE = 3;
+  var lexRank = corpus.chunks.map(function(c, i){ return {c: c, s: lex[i] / lexMax}; })
+    .filter(function(x){ return x.s > 0.35; })
+    .sort(function(a, b){ return b.s - a.s; })
+    .slice(0, LEX_LANE);
+  lexRank.forEach(function(x){
+    push(x.c, 'asked about: bm25 ' + x.s.toFixed(2), true);
+  });
+
+  scored.forEach(function(x){
+    if(out.length < PACK_CAP) push(x.c, x.why);
   });
   return {chunks: out, intent: intent};
 }
@@ -2212,7 +2840,11 @@ function validateAnswer(a, pack){
 // on the deterministic answer it has already rendered.
 function askServer(pack){
   var ctl = new AbortController();
-  var timer = setTimeout(function(){ ctl.abort(); }, 8000);
+  // Longer than the server's own upstream deadline, so a slow model produces
+  // the server's diagnosis rather than a bare client-side abort that says
+  // only "the model did not answer in time". Nothing is waiting on this: the
+  // deterministic answer is already rendered before the call is made.
+  var timer = setTimeout(function(){ ctl.abort(); }, 30000);
   return fetch('/ask', {
     method: 'POST', signal: ctl.signal,
     headers: {'content-type': 'application/json'},
@@ -2279,11 +2911,16 @@ function renderAnswer(pack, ans, note){
     nums = pack.facts.filter(function(f){ return /dist|runoff|hand|upa/.test(f.id); })
                      .slice(0,5);
 
+  // The question and the provenance line stay pinned outside the scroller, so
+  // scrolling a long answer never loses sight of what was asked or of who
+  // composed it. Those two facts qualify everything underneath them.
+  document.getElementById('answerHead').innerHTML =
+    '<span class="q">' + esc(pack.question) + '</span>' +
+    '<span class="gen">' + (ans.generator === 'model'
+      ? 'model \u00b7 ' + pack.chunks.length + ' sources'
+      : 'composed locally') + '</span>';
+
   host.innerHTML =
-    '<div class="ahead"><span class="q">' + esc(pack.question) + '</span>' +
-      '<span class="gen">' + (ans.generator === 'model'
-        ? 'model answer, grounded on ' + pack.chunks.length + ' sources'
-        : 'composed locally from the evidence pack') + '</span></div>' +
     (note ? '<div class="awarn">' + esc(note) + '</div>' : '') +
     '<div class="atext">' + linkCitations(body, order) + '</div>' +
     (ans.refused && ans.refused.length ? '<div class="arefuse">' +
@@ -2311,8 +2948,49 @@ function renderAnswer(pack, ans, note){
         (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">source &#8599;</a>' : '') +
         '<em>' + esc(c.why || '') + '</em></span></div>';
     }).join('');
-  host.style.display = 'block';
+  document.getElementById('answerPanel').classList.add('on');
+  host.scrollTop = 0;
 }
+
+function hideAnswer(){
+  var p = document.getElementById('answerPanel');
+  if(p) p.classList.remove('on');
+}
+
+// ---------------------------------------------------------------------------
+// The ask dock
+// ---------------------------------------------------------------------------
+// Wired once, at load, rather than rebuilt inside every verdict render. The
+// input is therefore a stable element: focus survives a re-check, a half-typed
+// question is not destroyed by clicking a second plot, and the control the
+// officer types into never moves on the screen.
+function showAskDock(){
+  var d = document.getElementById('askDock');
+  if(state.mode === 'timeline'){ d.classList.remove('on'); return; }
+  d.classList.add('on');
+}
+function hideAskDock(){
+  document.getElementById('askDock').classList.remove('on');
+  hideAnswer();
+}
+
+(function wireAsk(){
+  var chips = document.getElementById('askChips');
+  var input = document.getElementById('askQ');
+  chips.innerHTML = ASK_CHIPS.map(function(q, i){
+    return '<button class="chip" data-q="' + i + '">' + esc(q[0]) + '</button>';
+  }).join('');
+  chips.querySelectorAll('.chip').forEach(function(b){
+    b.onclick = function(){
+      input.value = ASK_CHIPS[+b.dataset.q][1];
+      ask(input.value);
+    };
+  });
+  document.getElementById('askBtn').onclick = function(){ ask(input.value); };
+  input.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); ask(input.value); }
+  });
+})();
 
 function ask(question, ctxOverride){
   question = String(question || '').trim();
@@ -2387,6 +3065,9 @@ function animateTo(el, target, suffix, decimals){
 
 function renderStats(){
   var s = state.stats, c = CITIES[state.city], host = document.getElementById('stats');
+  var showing = document.getElementById('verdict').classList.contains('on');
+  document.getElementById('statsCard').style.display =
+    (showing && state.mode === 'approval') ? 'none' : '';
   document.getElementById('statsTitle').textContent =
     state.mode==='impact' ? 'Who pays downstream' : 'Catchment ledger';
 
@@ -2442,11 +3123,23 @@ function renderStats(){
 function renderList(){
   var host = document.getElementById('list'), c = CITIES[state.city];
   var title = document.getElementById('leftTitle');
+  var count = document.getElementById('leftCount');
+
+  function mark(el){
+    host.querySelectorAll('.item').forEach(function(x){ x.classList.remove('on'); });
+    el.classList.add('on');
+  }
 
   if(state.buildings && state.buildings.features.length){
     var fs = state.buildings.features.slice().sort(function(a,b){
       return b.properties.risk_score - a.properties.risk_score; }).slice(0,40);
-    title.textContent = 'Ranked offenders · '+state.buildings.features.length+' flagged';
+    // "Offenders" was the wrong word on two counts. Nothing here identifies an
+    // owner \u2014 refusal.cannot-identify-owner says so in every answer \u2014 and the
+    // list is a removal-priority queue, ordered by how much catchment each
+    // structure blocks, not an accusation against whoever lives in one.
+    title.textContent = 'Flagged structures';
+    count.textContent = state.buildings.features.length;
+    count.style.display = '';
     host.innerHTML = fs.map(function(f,i){
       var p = f.properties;
       var col = p.verdict==='RED_FORMER_WATER_BODY' ? PALETTE.encroached
@@ -2454,13 +3147,15 @@ function renderList(){
       return '<div class="item" data-i="'+i+'">'+
         '<span class="rank">'+(i+1)+'</span>'+
         '<span class="dot" style="background:'+col+'"></span>'+
-        '<span class="body"><span class="nm">'+Math.round(p.area_in_meters)+' m² structure</span>'+
-        '<span class="sub">'+(+p.upstream_km2).toFixed(2)+' km² upstream · '+(+p.hand_m).toFixed(1)+' m above drain</span></span>'+
+        '<span class="body"><span class="nm">'+Math.round(p.area_in_meters)+' m\u00b2 structure</span>'+
+        '<span class="sub">'+(+p.upstream_km2).toFixed(2)+' km\u00b2 upstream \u00b7 '
+          +(+p.hand_m).toFixed(1)+' m above drain</span></span>'+
         '<span class="sc">'+(+p.risk_score).toFixed(0)+'</span></div>';
     }).join('');
     host.querySelectorAll('.item').forEach(function(el){
       el.onclick = function(){
         var f = fs[+el.dataset.i];
+        mark(el);
         map.flyTo({center: centroidOf(f), zoom:17.2, duration:1800});
         if(state.mode==='timeline'){ stop(); state.t=1; slider.value=100; update(); }
         selectBuilding(f);
@@ -2468,18 +3163,26 @@ function renderList(){
     });
   } else {
     title.textContent = 'Priority sites';
+    count.textContent = c.hotspots.length || '';
+    count.style.display = c.hotspots.length ? '' : 'none';
     host.innerHTML = c.hotspots.length
       ? c.hotspots.map(function(h,i){
           return '<div class="item" data-i="'+i+'">'+
-            '<span class="rank">'+(i+1)+'</span><span class="dot" style="background:#ff5b52"></span>'+
-            '<span class="body"><span class="nm">'+h.name+'</span>'+
+            '<span class="rank">'+(i+1)+'</span>'+
+            '<span class="dot" style="background:'+PALETTE.encroached+'"></span>'+
+            '<span class="body"><span class="nm">'+esc(h.name)+'</span>'+
             '<span class="sub">'+h.lat.toFixed(4)+', '+h.lon.toFixed(4)+'</span></span>'+
             '<span class="sc">'+h.px+'</span></div>';
         }).join('')
-      : '<div style="padding:10px;font-size:11.5px;color:var(--faint)">No hotspots computed for this city yet.</div>';
+      // An empty state that says what is missing and what produces it beats a
+      // blank panel, because the thing that fills it is a command.
+      : '<div class="empty">No hotspots computed for ' + esc(c.label) + ' yet.<br>'
+        + 'Run <code>./hotspots.py ' + state.city + '</code> and paste the printed '
+        + 'block into the CITIES table.</div>';
     host.querySelectorAll('.item').forEach(function(el){
       el.onclick = function(){
         var h = c.hotspots[+el.dataset.i];
+        mark(el);
         stop(); state.t=1; slider.value=100; update();
         map.flyTo({center:[h.lon,h.lat], zoom:16.4, duration:2000});
       };
@@ -2511,6 +3214,9 @@ function hideToast(){ document.getElementById('toast').style.display='none'; }
 // ===========================================================================
 // CITY SWITCH, VALIDATION, EXPORT
 // ===========================================================================
+document.getElementById('queueHide').onclick = function(){ setQueue(false); };
+document.getElementById('queueToggle').onclick = function(){ setQueue(true); };
+
 var ruleSel = document.getElementById('ruleSel');
 ruleSel.innerHTML = Object.keys(RULESETS).map(function(k){
   return '<option value="'+k+'">'+RULESETS[k].label+'</option>';
@@ -2603,8 +3309,20 @@ document.getElementById('csvBtn').onclick = function(){
   a.click();
 };
 
+// Space plays the timeline — but only when the user is not typing. Without the
+// target guard this preventDefault swallows every space bar pressed in the ask
+// box, the plot-frontage field and every certificate field, so a multi-word
+// question simply cannot be typed.
 document.addEventListener('keydown', function(e){
-  if(e.key==='Escape') document.getElementById('modal').classList.remove('on');
+  var t = e.target, tag = t && t.tagName;
+  var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+            || (t && t.isContentEditable);
+  if(e.key==='Escape'){
+    if(typing) t.blur();
+    document.getElementById('modal').classList.remove('on');
+    return;
+  }
+  if(typing) return;
   if(e.key===' '){ e.preventDefault(); document.getElementById('play').click(); }
 });
 </script>
