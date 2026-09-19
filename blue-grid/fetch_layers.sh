@@ -35,3 +35,8 @@ while IFS= read -r line; do
   fi
 done < "$SRC"
 echo "$ok downloaded, $fail failed -> $DEST"
+
+# Earth Engine writes a fractional alpha wherever a layer mixes source scales,
+# and a browser's canvas quantisation-damages every channel underneath it.
+# Flattening here means a freshly fetched layer is never briefly wrong.
+if [ -x ./flatten_alpha.py ]; then ./flatten_alpha.py "$CITY"; fi

@@ -9,3 +9,8 @@ PNG ref2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-
 PNG mndwi2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/a54790f4508ce75f997984d33bfd6c3d-0ded2eafd735ada6ac56125f7927c6ff:getPixels
 PNG buffers: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/9bdb57d0c3874b40e4be3b2c36fc8298-3a98d4f127c4c05aadb0b37cb714311e:getPixels
 PNG history: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/58beb6d0a64babe1495e08522ab28d1d-eace98509e86ed308acba8615b6d37e7:getPixels
+# hydro.png is new. Re-run gee_blue_grid.js and paste its line here, then
+# ./fetch_layers.sh bengaluru. Until it lands the plot check works as before
+# and every answer says upstream catchment is unavailable rather than
+# guessing at it.
+# PNG hydro: <paste the console link here>

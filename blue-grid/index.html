@@ -105,13 +105,59 @@ select{background:var(--panel-solid);color:var(--text);border:1px solid var(--li
 .vbadge.blue{background:rgba(108,182,255,.13);color:#8ac8ff;box-shadow:inset 0 0 0 1px rgba(108,182,255,.36)}
 .vbadge.violet{background:rgba(163,113,247,.15);color:#c9a6ff;box-shadow:inset 0 0 0 1px rgba(163,113,247,.42)}
 .vbadge .ic{font-size:17px;line-height:1}
-#brief{margin-top:13px;padding:13px;background:rgba(140,170,220,.06);border-radius:10px;
-  border-left:2px solid var(--red);font-size:11.5px;line-height:1.65;white-space:pre-wrap;
-  color:#c3d2e6;display:none;max-height:230px;overflow-y:auto}
 .act{width:100%;margin-top:11px;padding:10px;background:rgba(47,129,247,.16);
   border:1px solid rgba(47,129,247,.4);color:#cfe3ff;border-radius:10px;
   font:700 11.5px/1 var(--sans);cursor:pointer;transition:background .16s}
 .act:hover{background:rgba(47,129,247,.28)}
+.act:disabled{opacity:.55;cursor:default}
+
+/* ---------- ask ---------- */
+.asker{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.chip{padding:6px 9px;background:rgba(140,170,220,.07);border:1px solid var(--line);
+  color:var(--dim);border-radius:999px;font:600 10.5px/1 var(--sans);cursor:pointer;
+  transition:color .16s,border-color .16s}
+.chip:hover{color:var(--text);border-color:var(--line-hot)}
+.askrow{display:flex;gap:7px;align-items:stretch}
+.askrow input{flex:1;min-width:0;padding:9px 11px;background:rgba(140,170,220,.06);
+  border:1px solid var(--line);border-radius:10px;color:var(--text);
+  font:400 12px/1.2 var(--sans);outline:none}
+.askrow input:focus{border-color:var(--line-hot)}
+.askrow .act{width:auto;margin:0;padding:9px 15px;white-space:nowrap}
+
+#answer{display:none;margin-top:13px;padding:13px;border-radius:10px;
+  background:rgba(140,170,220,.05);border:1px solid var(--line)}
+.ahead{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;
+  padding-bottom:9px;border-bottom:1px solid var(--line)}
+.ahead .q{font-size:12px;font-weight:700;line-height:1.4}
+.ahead .gen{font-size:10px;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
+/* A withheld model answer is reported, never hidden: the officer is entitled
+   to know the machine said something the tool would not stand behind. */
+.awarn{margin-bottom:10px;padding:8px 10px;border-radius:8px;font-size:10.5px;
+  line-height:1.55;color:#f3d79a;background:rgba(240,180,41,.09);
+  border-left:2px solid var(--amber)}
+.atext{font-size:12px;line-height:1.7;color:#c9d7ea}
+.atext .cite{font-family:var(--mono);font-size:9px;color:var(--water-now);
+  padding:0 1px;vertical-align:super}
+.arefuse{margin-top:10px;padding:8px 10px;border-radius:8px;font-size:10.5px;
+  line-height:1.55;color:#c9a6ff;background:rgba(163,113,247,.1);
+  border-left:2px solid var(--violet)}
+.asec{margin:14px 0 4px;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--faint);font-weight:700}
+#answer .metric{padding:6px 0}
+#answer .metric .v{font-size:12px}
+#answer .metric i{font-style:normal;color:var(--faint);font-size:10px;font-weight:400}
+.awhat{margin:0;padding-left:15px;font-size:11px;line-height:1.6;color:var(--dim)}
+.awhat li{margin-bottom:4px}
+.asrc{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line)}
+.asrc .n{flex:0 0 15px;font-family:var(--mono);font-size:9px;color:var(--water-now);
+  padding-top:2px}
+.asrc b{display:block;font-size:11px;font-weight:600;line-height:1.4}
+.asrc i{display:block;font-style:normal;font-size:10px;color:var(--faint);
+  line-height:1.5;margin-top:1px}
+.asrc em{display:block;font-style:normal;font-family:var(--mono);font-size:9px;
+  color:rgba(125,142,168,.6);margin-top:2px}
+.asrc a{display:inline-block;font-size:9.5px;color:var(--water-now);margin-top:2px}
 
 /* ---------- timeline ---------- */
 #timeline{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:18;
@@ -325,10 +371,14 @@ var CITIES = {
 var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','encroached'];
 
 // Lookup tables, never drawn. These carry measurements rather than colour:
-// buffers packs three distances in metres into R/G/B, yearloss packs the last
-// year water was recorded. Drawing them would be meaningless; sampling them is
-// the whole point.
-var DATA_LAYERS = ['buffers','history'];
+// buffers packs three distances in metres into R/G/B, history packs the last
+// year water was recorded, and hydro packs upstream catchment. Drawing them
+// would be meaningless; sampling them is the whole point.
+//
+// Membership of this list is what gets a layer decoded at 1:1 with smoothing
+// off. A measurement layer left out of it is quietly area-averaged into byte
+// codes that were never computed.
+var DATA_LAYERS = ['buffers','history','hydro'];
 // Exactly the palette gee_blue_grid.js renders the PNGs with. Changing a
 // colour here without changing it there makes the legend lie.
 var PALETTE = {
@@ -352,6 +402,42 @@ var RULESETS = {
              + 'upheld by the Supreme Court and applied prospectively.'}
 };
 
+// Numbers the tool computes with, and their single authoritative home.
+//
+// Each of these is DECLARED IN THE CORPUS, on the chunk that cites its source,
+// and the value below is a bootstrap copy so the plot check still runs before
+// corpus.json has loaded. check_corpus.py scrapes this block and fails if the
+// two ever disagree, which is the same cross-file consistency test
+// verify_encoding.py runs between two rasters.
+//
+// Everything here is a placeholder until the sourcing marked verify: true in
+// the corpus has been done. The runoff figures in particular are stated
+// defaults, not measurements of this city.
+// @params
+var PARAMS = {
+  P_mm:          60,     // design storm depth, mm in one hour
+  P_pm:          24,     // and its uncertainty, dominated by the return period
+  P_annualMm:    970,    // annual rainfall, for the yearly figure
+  C_pre:         0.30,   // runoff coefficient, open ground
+  C_post:        0.85,   // runoff coefficient, roof and paving
+  dC:            0.55,   // the change, which is what displacement turns on
+  dC_pm:         0.15,
+  tankerL:       6000,   // a volume nobody can picture, made picturable
+  handDeepM:     1,      // inside a water path: retention and plinth
+  handLowM:      2,      // flood-prone, as the layer defines it
+  handMarginalM: 5,
+  upaCeilKm2:    1000,   // the log-packing ceiling in hydro.png's red channel
+  trunkUpaKm2:   10
+};
+// @end-params
+
+// hydro.png is the one layer not read as a straight byte. Decoding the log
+// packing here, once, next to the encoder it mirrors in gee_blue_grid.js.
+var UPA_DEN = Math.log(1 + PARAMS.upaCeilKm2) / Math.LN10;
+function decodeUpa(code){
+  return code === null ? null : Math.pow(10, (code/255) * UPA_DEN) - 1;
+}
+
 // The error budget, stated once and used everywhere a distance is judged.
 //   JRC 30 m pixel, shoreline position   +/- 15 m
 //   distance-transform quantum at 10 m   +/-  7 m
@@ -364,7 +450,11 @@ var UNCERTAINTY_M = 20;
 var state = {
   city: 'bengaluru', mode: 'timeline', t: 0, playing: false,
   rule: 'state', plotM: 30, lastCheck: null,
-  stats: null, buildings: null, samplers: {}, have: {}, marker: null, selected: null, ready: false
+  stats: null, buildings: null, samplers: {}, have: {}, marker: null, selected: null, ready: false,
+  // The retrieval layer. corpus is city-agnostic and fetched once; centroids
+  // is rebuilt per city; lastAnswer is kept so a ruleset change can invalidate
+  // an answer that was reasoned under the rule the officer has just left.
+  corpus: null, centroids: null, lastAnswer: null, asking: false
 };
 
 // ===========================================================================
@@ -394,6 +484,24 @@ var map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-right');
 
 function corners(b){ return [[b[0],b[3]],[b[2],b[3]],[b[2],b[1]],[b[0],b[1]]]; }
+
+// Mean of the outer ring. Crude, and correct enough for a footprint this size
+// against a 6.36 m pixel. Third caller, so it stops being written out inline.
+function centroidOf(f){
+  var g = f.geometry;
+  var pts = g.type === 'Polygon' ? g.coordinates[0] : g.coordinates[0][0];
+  var lon = 0, lat = 0;
+  pts.forEach(function(p){ lon += p[0]; lat += p[1]; });
+  return [lon/pts.length, lat/pts.length];
+}
+
+// Equirectangular, which at a few hundred metres and this latitude is exact
+// to well inside the error budget and far cheaper than a haversine.
+function metresBetween(lon1, lat1, lon2, lat2){
+  var dx = (lon2-lon1) * 111320 * Math.cos(lat1*Math.PI/180);
+  var dy = (lat2-lat1) * 110574;
+  return Math.sqrt(dx*dx + dy*dy);
+}
 
 // The side rails are fixed width, so reserving room for them as a constant
 // squeezes the map to a sliver on a narrow window. Scale the reservation with
@@ -505,8 +613,16 @@ function makeSampler(url, b, exact){
 // closest approach of the feature to the plot is what a buffer rule turns on,
 // so 'min' is the correct reduction; for the year layer 'max' gives the most
 // recent year any part of the plot held water.
-function sampleCh(s, lon, lat, b, ch, mode, radiusM){
+function sampleCh(s, lon, lat, b, ch, mode, radiusM, minAlpha){
   if(!s) return null;
+  // Alpha is only a validity flag on a layer whose bands all share one
+  // projection. Where a layer mixes scales - history carries JRC at 30 m
+  // beside MERIT at 90 m - Earth Engine resamples the combined mask and
+  // writes the FRACTION into alpha, so real data arrives at alpha 17 or 166.
+  // Demanding exactly 255 there discards precisely the pixels that have
+  // values, silently, and every reading comes back null. Zero still means
+  // outside the clip, so one is the honest floor for those layers.
+  var aMin = minAlpha === undefined ? 255 : minAlpha;
   var x = Math.round((lon-b[0])/(b[2]-b[0]) * s.w);
   var y = Math.round((b[3]-lat)/(b[3]-b[1]) * s.h);
   var R = Math.max(0, Math.round((radiusM || PROBE_METRES) / s.mpp));
@@ -516,7 +632,7 @@ function sampleCh(s, lon, lat, b, ch, mode, radiusM){
     var px = x+dx, py = y+dy;
     if(px<0||py<0||px>=s.w||py>=s.h) continue;
     var i = (py*s.w+px)*4;
-    if(s.d[i+3] !== 255) continue;     // outside the study area: no evidence
+    if(s.d[i+3] < aMin) continue;      // outside the study area: no evidence
     var v = s.d[i+ch];
     if(best === null) best = v;
     else if(lo ? v < best : v > best) best = v;
@@ -593,9 +709,28 @@ function loadCity(key){
     fetch('data/'+key+'/flagged_buildings.geojson').then(function(r){return r.ok?r.json():null;})
       .catch(function(){return null;}).then(function(g){
         state.buildings = g;
+        // Precomputed once here rather than per click. A linear scan over a
+        // few thousand of these is under a frame; recomputing the centroids
+        // inside the scan would not be.
+        state.centroids = g ? g.features.map(function(f){
+          var c = centroidOf(f);
+          return {lon:c[0], lat:c[1], p:f.properties};
+        }) : null;
         map.getSource('buildings').setData(g || {type:'FeatureCollection',features:[]});
       })
   );
+
+  // City-agnostic and fetched once. Its absence is survivable: the plot check
+  // and the templated answer both still work, they simply lose their citations.
+  if(!state.corpus){
+    jobs.push(
+      fetch('data/corpus.json').then(function(r){return r.ok?r.json():null;})
+        .catch(function(){return null;}).then(function(j){
+          state.corpus = j;
+          if(j) reconcileParams(j);
+        })
+    );
+  }
 
   return Promise.all(jobs).then(function(){
     map.fitBounds([[c.bounds[0],c.bounds[1]],[c.bounds[2],c.bounds[3]]],
@@ -727,7 +862,7 @@ function readSite(lngLat){
   var b = CITIES[state.city].bounds, S = state.samplers;
   var r = Math.max(6, state.plotM / 2);          // half the plot frontage
   function buf(ch, mode){ return sampleCh(S.buffers, lngLat.lng, lngLat.lat, b, ch, mode, r); }
-  function his(ch, mode){ return sampleCh(S.history, lngLat.lng, lngLat.lat, b, ch, mode, r); }
+  function his(ch, mode){ return sampleCh(S.history, lngLat.lng, lngLat.lat, b, ch, mode, r, 1); }
   var yc = his(0, 'max');
   return {
     // Distances take the MINIMUM over the plot: a buffer is breached if ANY
@@ -743,39 +878,228 @@ function readSite(lngLat){
   };
 }
 
+// ---------------------------------------------------------------------------
+// SITE CONTEXT — readSite, plus what can be derived from it
+// ---------------------------------------------------------------------------
+// Layered strictly on top. readSite and decide are the authority and are not
+// touched here beyond reading their output: the derived quantities below are
+// all reversible arithmetic on values those two already produced.
+//
+// decide() computes the shoreline retreat inline for its own message. That
+// subtraction is repeated here rather than factored out of it. Duplicating one
+// subtraction is cheaper than reaching into the branch that produces the
+// finding this whole tool exists to make.
+//
+// The field list below is the manifest check_corpus.py scrapes: every corpus
+// trigger must name a field that appears in it, so renaming one here breaks
+// the corpus check instead of silently disabling its triggers.
+// @site-fields
+//   city inAoi lat lon plotM plotAreaM2
+//   ruleId lakeM drainM
+//   distPresent distHistoric distDrain lastWaterYear occurrence handM encroached
+//   retreatM flowClass handClass
+//   upaKm2 distTrunk elevAboveMinM
+//   runoffDisplacedM3 runoffLoM3 runoffHiM3 runoffAnnualM3 tankerEquiv
+//   verdict codes hasBuildings nNeighbours nearestFlaggedM
+//   intent
+// @end-site-fields
+
+// Two significant figures. The uncertainty on every derived volume here is
+// tens of per cent, and a third digit would claim precision the inputs cannot
+// support while looking exactly like one that could.
+function sig2(x){
+  if(x === null || !isFinite(x)) return null;
+  if(x === 0) return 0;
+  var mag = Math.pow(10, Math.floor(Math.log(Math.abs(x))/Math.LN10) - 1);
+  return Math.round(x/mag) * mag;
+}
+
+function classifyFlow(distDrain, drainM){
+  if(distDrain === null) return null;
+  if(distDrain >= 255) return 'UNRESOLVED';
+  if(distDrain === 0) return 'ON_FLOW_PATH';
+  if(distDrain <= 10) return 'ADJACENT';            // one distance-transform step
+  if(distDrain <= drainM + UNCERTAINTY_M) return 'NEAR';
+  return 'OFF';
+}
+
+function classifyHand(handM){
+  if(handM === null) return null;
+  if(handM >= 255) return 'UNKNOWN';                // the byte ceiling, not a height
+  if(handM === 0) return 'AT_DRAINAGE_LEVEL';
+  if(handM <= PARAMS.handDeepM) return 'DEEP_IN_A_WATER_PATH';
+  if(handM <= PARAMS.handLowM) return 'LOW_GROUND';
+  if(handM <= PARAMS.handMarginalM) return 'MARGINAL';
+  return 'ELEVATED';
+}
+
+// The three nearest flagged structures, as context and never as a property of
+// the plot. Tagged so the prompt can forbid attributing them to it.
+function neighboursOf(lngLat){
+  if(!state.centroids) return [];
+  var out = [];
+  for(var i=0;i<state.centroids.length;i++){
+    var c = state.centroids[i];
+    var d = metresBetween(lngLat.lng, lngLat.lat, c.lon, c.lat);
+    if(d <= 300) out.push({m:Math.round(d), p:c.p});
+  }
+  out.sort(function(a,b){ return a.m - b.m; });
+  return out.slice(0,3);
+}
+
+function siteContext(lngLat, rule, building){
+  var m = readSite(lngLat);
+  var out = decide(m, rule);
+  var inAoi = !(m.distPresent === null || m.distHistoric === null);
+  var S = state.samplers, b = CITIES[state.city].bounds;
+  var r = Math.max(6, state.plotM / 2);
+
+  // hydro.png is optional: it postdates the other exports and a city may not
+  // have been re-run yet. Absent, the upstream facts are simply not produced
+  // and the answer says the layer is missing rather than guessing at it.
+  // Channel order follows the export in gee_blue_grid.js section 13:
+  //   r = log-packed upstream area, g = metres to a trunk channel,
+  //   b = metres above the study-area low point.
+  // g and b were transposed here, so "distance to the main drain" was reading
+  // local relief - a number that is never far from zero, and therefore looked
+  // like a plot always sitting on a trunk channel.
+  var hyd = function(ch, mode){
+    return S.hydro ? sampleCh(S.hydro, lngLat.lng, lngLat.lat, b, ch, mode, r, 1) : null;
+  };
+  var upaCode = hyd(0, 'max');
+  var upaKm2 = upaCode === null ? null : sig2(decodeUpa(upaCode));
+  var distTrunk = hyd(1, 'min');
+  var elevAbove = hyd(2, 'min');
+
+  var area = state.plotM * state.plotM;
+
+  // Volume displaced per design storm: plot area, times storm depth in metres,
+  // times the change in runoff coefficient. Three stated numbers and two
+  // multiplications, so a reader can check it on paper — which is the reason
+  // for using the volumetric form rather than a peak-flow estimate needing a
+  // time of concentration this tool cannot defend for a single plot.
+  //
+  // Not computed outside the study area. A volume derived entirely from
+  // assumptions looks identical to a measurement and is not one.
+  var vol = null, volLo = null, volHi = null, volYear = null, tankers = null;
+  if(inAoi){
+    vol = area * (PARAMS.P_mm/1000) * PARAMS.dC;
+    var rel = Math.sqrt(Math.pow(PARAMS.P_pm/PARAMS.P_mm, 2) +
+                        Math.pow(PARAMS.dC_pm/PARAMS.dC, 2));
+    volLo = sig2(vol * (1-rel)); volHi = sig2(vol * (1+rel));
+    volYear = sig2(area * (PARAMS.P_annualMm/1000) * PARAMS.dC);
+    tankers = Math.max(1, Math.round(vol / (PARAMS.tankerL/1000)));
+    vol = sig2(vol);
+  }
+
+  var nb = neighboursOf(lngLat);
+
+  return {
+    m: m,
+    verdict: out,
+    neighbours: nb,
+    // Set when the context is about one flagged footprint rather than a
+    // clicked plot. Its per-footprint measurements were computed inside Earth
+    // Engine against the polygon itself, so they are better evidence than the
+    // disc reduction and are carried separately rather than blended into it.
+    building: building || null,
+    rec: {
+      city: state.city, inAoi: inAoi,
+      lat: lngLat.lat, lon: lngLat.lng,
+      plotM: state.plotM, plotAreaM2: area,
+      ruleId: rule.id, lakeM: rule.lakeM, drainM: rule.drainM,
+      distPresent: m.distPresent, distHistoric: m.distHistoric,
+      distDrain: m.distDrain, lastWaterYear: m.lastWaterYear,
+      occurrence: m.occurrence, handM: m.handM, encroached: m.encroached,
+      // Only meaningful outside the earlier shoreline. On the old bed itself
+      // distHistoric is zero and the subtraction returns the distance to
+      // today's water, which is not a retreat and would pull the
+      // shoreline-disagreement chunk into an answer decide() never made that
+      // finding for. decide() is already structured this way: it returns
+      // before reaching its own retreat test whenever distHistoric is zero.
+      retreatM: (m.distPresent !== null && m.distHistoric)
+                  ? Math.max(0, m.distPresent - m.distHistoric) : null,
+      flowClass: classifyFlow(m.distDrain, rule.drainM),
+      handClass: classifyHand(m.handM),
+      upaKm2: upaKm2, distTrunk: distTrunk, elevAboveMinM: elevAbove,
+      runoffDisplacedM3: vol, runoffLoM3: volLo, runoffHiM3: volHi,
+      runoffAnnualM3: volYear, tankerEquiv: tankers,
+      verdict: out.d, codes: out.codes || [],
+      hasBuildings: !!state.centroids,
+      nNeighbours: nb.length,
+      nearestFlaggedM: nb.length ? nb[0].m : null,
+      intent: null                       // filled in per question by retrieve()
+    }
+  };
+}
+
+// The corpus is the authoritative home for every number the tool computes
+// with; PARAMS is a bootstrap copy so the plot check runs before corpus.json
+// lands. If the two disagree the corpus wins, because it is the copy carrying
+// the citation — and it says so out loud, because a silent correction would
+// mean the screening before the fetch used a different rule from the one after.
+function reconcileParams(corpus){
+  var drift = [];
+  Object.keys(PARAMS).forEach(function(k){
+    var e = corpus.params[k];
+    if(!e) return;
+    if(e.v !== PARAMS[k]){ drift.push(k+' '+PARAMS[k]+' \u2192 '+e.v); PARAMS[k] = e.v; }
+  });
+  var u = corpus.params.uncertaintyM;
+  if(u && u.v !== UNCERTAINTY_M) drift.push('uncertaintyM differs: corpus says '+u.v);
+  if(drift.length){
+    console.warn('corpus overrode bootstrap parameters: '+drift.join(', '));
+    toast('Parameters differ from the corpus — run ./check_corpus.py: '+drift.join(', '));
+  }
+}
+
 // Four outcomes, and deliberately none of them is APPROVE. This tool screens;
 // it does not grant permission, and saying so is both honest and the answer to
 // "would you approve a build on a tank too small for you to see?"
 function decide(m, rule){
   if(m.distPresent === null || m.distHistoric === null)
-    return {d:'REFER', why:['This plot lies outside the mapped study area. No satellite evidence exists for it.']};
+    return {d:'REFER', codes:['refer.outside-study-area'],
+      why:['This plot lies outside the mapped study area. No satellite evidence exists for it.']};
+
+  // Occurrence comes from a different layer than the distance fields, and a
+  // pixel can carry one and not the other. Printed raw that reads as
+  // "null% of observations", which is worse than saying nothing.
+  var occ = m.occurrence === null ? null : m.occurrence + '%';
 
   if(m.distPresent === 0)
-    return {d:'REJECT', why:['The plot footprint falls inside an existing surface water body, '
-      + 'recorded as water in ' + m.occurrence + '% of observations since 1984.']};
+    return {d:'REJECT', codes:['reject.inside-live-water'],
+      why:['The plot footprint falls inside an existing surface water body'
+      + (occ ? ', recorded as water in ' + occ + ' of observations since 1984.' : '.')]};
 
   if(m.distHistoric === 0){
     var when = m.lastWaterYear ? 'last recorded as water in ' + m.lastWaterYear
                                : 'recorded as water before 2000';
     if(m.occurrence >= 50){
       var w = ['The plot sits on a former water body, ' + when + ', water in '
-        + m.occurrence + '% of observations.'];
+        + occ + ' of observations.'];
       if(m.encroached > .1) w.push('Construction is already present on this footprint.');
-      return {d:'REJECT', why:w};
+      return {d:'REJECT', codes:['reject.former-water-high-occurrence'], why:w};
     }
-    return {d:'REFER', why:['The plot sits on land recorded as water only ' + m.occurrence
-      + '% of the time, ' + when + '. At 30 m resolution intermittent water cannot be '
-      + 'distinguished from a wet season.']};
+    return {d:'REFER', codes:['refer.intermittent-water'],
+      why:[occ
+        ? 'The plot sits on land recorded as water only ' + occ + ' of the time, '
+          + when + '. At 30 m resolution intermittent water cannot be '
+          + 'distinguished from a wet season.'
+        : 'The plot sits on land recorded as water, ' + when + '. How often it '
+          + 'held water is not recorded at this pixel, so the record cannot '
+          + 'distinguish a tank from a field that floods in a wet year.']};
   }
 
   var R = [];
   function near(v, thr){ return Math.abs(v - thr) <= UNCERTAINTY_M; }
 
   if(m.distPresent < rule.lakeM - UNCERTAINTY_M)
-    R.push({d:'REJECT', t:'The plot lies ' + m.distPresent + ' m from the present water edge, '
+    R.push({d:'REJECT', code:'reject.inside-buffer',
+      t:'The plot lies ' + m.distPresent + ' m from the present water edge, '
       + 'inside the ' + rule.lakeM + ' m buffer.'});
   else if(near(m.distPresent, rule.lakeM))
-    R.push({d:'REFER', t:'The plot lies ' + m.distPresent + ' m from the present water edge. '
+    R.push({d:'REFER', code:'refer.buffer-within-uncertainty',
+      t:'The plot lies ' + m.distPresent + ' m from the present water edge. '
       + 'At ±' + UNCERTAINTY_M + ' m that cannot be resolved against the ' + rule.lakeM
       + ' m buffer. Ground survey required.'});
 
@@ -784,7 +1108,8 @@ function decide(m, rule){
   // shrunk, that boundary is one encroachment itself produced, and the two
   // measurements disagree.
   if(m.distPresent - m.distHistoric > 30 && m.distHistoric < rule.lakeM)
-    R.push({d:'REFER', t:'Measured from today’s water edge the plot is ' + m.distPresent
+    R.push({d:'REFER', code:'refer.shoreline-disagreement',
+      t:'Measured from today’s water edge the plot is ' + m.distPresent
       + ' m away and clears the ' + rule.lakeM + ' m buffer. Measured from the 1984–99 '
       + 'edge it is ' + m.distHistoric + ' m away, inside it. The shoreline has retreated '
       + (m.distPresent - m.distHistoric) + ' m here, so the buffer measured today is drawn '
@@ -793,16 +1118,18 @@ function decide(m, rule){
   // Never a rejection. MERIT Hydro is 90 m and cannot site an individual
   // rajakaluve, so the honest output is a referral naming that limit.
   if(m.distDrain < rule.drainM + UNCERTAINTY_M)
-    R.push({d:'REFER', t:'The plot lies about ' + m.distDrain + ' m from a terrain-derived '
+    R.push({d:'REFER', code:'refer.near-drainage',
+      t:'The plot lies about ' + m.distDrain + ' m from a terrain-derived '
       + 'drainage line, against a ' + rule.drainM + ' m buffer. Drain order is not resolved '
       + 'at the 90 m source resolution — check the BBMP rajakaluve alignment for this '
       + 'survey number.'});
 
   if(m.handM !== null && m.handM <= 1)
-    R.push({d:'CONDITIONS', t:'The plot stands ' + m.handM + ' m above the nearest drainage '
+    R.push({d:'CONDITIONS', code:'conditions.low-ground',
+      t:'The plot stands ' + m.handM + ' m above the nearest drainage '
       + 'line. On-site retention and a plinth condition should be imposed.'});
 
-  if(!R.length) return {d:'NO_OBJECTION', why:[
+  if(!R.length) return {d:'NO_OBJECTION', codes:['no-objection.nothing-found'], why:[
     'No recorded water body, buffer breach or drainage line within ' + UNCERTAINTY_M
       + ' m of this plot.',
     'Absence of evidence at 30 m resolution is not evidence of absence: tanks under roughly '
@@ -810,8 +1137,39 @@ function decide(m, rule){
 
   var rank = {REJECT:3, REFER:2, CONDITIONS:1};
   var top = R.reduce(function(a,b){ return rank[b.d] > rank[a.d] ? b : a; });
-  return {d:top.d, why:R.map(function(x){ return x.t; })};
+  // The codes ride alongside the prose rather than replacing it. Nothing that
+  // already reads decide() has to change, and the retriever gets a machine
+  // handle on which branch fired, which is what the citation spine hangs on.
+  return {d:top.d, why:R.map(function(x){ return x.t; }),
+          codes:R.map(function(x){ return x.code; })};
 }
+
+// The citation spine. Every branch decide() can take names the chunk that
+// explains it, and that chunk is forced into the evidence pack at rank zero.
+// Two consequences: the pack is never empty, and the tool's own reasoning is
+// always citable rather than being the one claim in the answer with no source.
+// check_corpus.py asserts this map and decide() agree in both directions.
+var CODE_CHUNK = {
+  'refer.outside-study-area':          'refusal.outside-study-area',
+  'reject.inside-live-water':          'outcome.reject.meaning',
+  'reject.former-water-high-occurrence':'outcome.reject.meaning',
+  'refer.intermittent-water':          'outcome.refer.meaning',
+  'reject.inside-buffer':              'outcome.reject.meaning',
+  'refer.buffer-within-uncertainty':   'error.budget.combined-20m',
+  'refer.shoreline-disagreement':      'outcome.shoreline-disagreement',
+  'refer.near-drainage':               'rule.rajakaluve.bbmp-alignment-governs',
+  'conditions.low-ground':             'outcome.conditions.meaning',
+  'no-objection.nothing-found':        'outcome.no-objection.meaning'
+};
+
+// The three questions this layer was built to answer, one click away. The
+// short label is what fits on a chip; the long form is what gets asked, since
+// the intent router reads the wording.
+var ASK_CHIPS = [
+  ['What happens if built?', 'What happens if a construction occurs at this place?'],
+  ['Should it be allowed?',  'Is this construction feasible, and should it be allowed?'],
+  ['Effect on flooding?',    'Will it affect the flooding level here and downstream?']
+];
 
 var OUTCOME = {
   REJECT:       {c:'red',    ic:'✕', t:'REJECT'},
@@ -829,9 +1187,13 @@ function checkPlot(lngLat){
       + state.city); return;
   }
   var rule = RULESETS[state.rule];
-  var m = readSite(lngLat);
-  var out = decide(m, rule);
-  state.lastCheck = {m:m, out:out, lngLat:lngLat, rule:rule, at:new Date()};
+  var ctx = siteContext(lngLat, rule);
+  var m = ctx.m, out = ctx.verdict;
+  state.lastCheck = {m:m, out:out, ctx:ctx, lngLat:lngLat, rule:rule, at:new Date()};
+  // A new site invalidates the answer about the old one.
+  state.lastAnswer = null;
+  var prev = document.getElementById('answer');
+  if(prev) prev.style.display = 'none';
 
   var st = OUTCOME[out.d];
   if(state.marker) state.marker.remove();
@@ -849,6 +1211,11 @@ function checkPlot(lngLat){
     ['Last recorded as water', m.lastWaterYear || 'never, 1984–2021'],
     ['Water occurrence', m.occurrence === null ? '—' : m.occurrence + '%'],
     ['Above nearest drainage', metres(m.handM)],
+    ['Catchment through this point', ctx.rec.upaKm2 === null ? '—'
+       : ctx.rec.upaKm2 + ' km²'],
+    ['Runoff displaced per storm', ctx.rec.runoffDisplacedM3 === null ? '—'
+       : ctx.rec.runoffDisplacedM3 + ' m³ (' + ctx.rec.runoffLoM3 + '–'
+         + ctx.rec.runoffHiM3 + ')'],
     ['Rule applied', rule.label]
   ];
 
@@ -859,6 +1226,20 @@ function checkPlot(lngLat){
 function selectBuilding(f){
   var p = f.properties;
   state.selected = p;
+  state.selectedF = f;
+  // Selecting a footprint moves the site context to it, so the ask box, the
+  // evidence brief and any certificate issued next are all about the same
+  // thing. Without this a question asked after a building click would answer
+  // about whichever plot happened to be clicked before it.
+  state.lastAnswer = null;
+  if(state.samplers.buffers){
+    var ctr = centroidOf(f);
+    var ll = {lng: ctr[0], lat: ctr[1]};
+    var rule = RULESETS[state.rule];
+    var ctx = siteContext(ll, rule, p);
+    state.lastCheck = {m: ctx.m, out: ctx.verdict, ctx: ctx, lngLat: ll,
+                       rule: rule, at: new Date()};
+  }
   var red = p.verdict && p.verdict.indexOf('RED')===0;
   var r = p.verdict==='RED_FORMER_WATER_BODY'
       ? {c:'red', ic:'✕', t:'BUILT ON FORMER WATER BODY', s:'Footprint overlaps land classified as surface water before 2000.'}
@@ -889,7 +1270,15 @@ function showVerdict(r, rows, p, actions){
       return '<button class="act" data-act="'+i+'">'+a.label+'</button>';
     }).join('') +
     (p ? '<button class="act" id="briefBtn">Generate evidence brief</button>' : '') +
-    '<div id="brief"></div>';
+    (state.lastCheck ?
+      '<div class="asker">' +
+        '<div class="chips">' + ASK_CHIPS.map(function(q,i){
+          return '<button class="chip" data-q="'+i+'">'+q[0]+'</button>'; }).join('') +
+        '</div>' +
+        '<div class="askrow"><input id="askQ" placeholder="Ask about this plot…" ' +
+          'autocomplete="off"><button class="act" id="askBtn">Ask</button></div>' +
+      '</div>' : '') +
+    '<div id="answer"></div>';
   // A verdict is the answer to the question just asked, so it goes to the top
   // of the rail and the rail scrolls to it. On a short window it would
   // otherwise render below the fold, which loses the whole point.
@@ -899,33 +1288,40 @@ function showVerdict(r, rows, p, actions){
   el.style.animation='none'; void el.offsetWidth; el.style.animation='';
   rail.scrollTop = 0;
   if(p) document.getElementById('briefBtn').onclick = function(){ writeBrief(p); };
+  var askQ = document.getElementById('askQ');
+  if(askQ){
+    document.getElementById('askBtn').onclick = function(){ ask(askQ.value); };
+    askQ.onkeydown = function(e){ if(e.key === 'Enter') ask(askQ.value); };
+    el.querySelectorAll('.chip').forEach(function(b){
+      b.onclick = function(){ askQ.value = ASK_CHIPS[+b.dataset.q][1]; ask(askQ.value); };
+    });
+  }
   (actions||[]).forEach(function(a,i){
     el.querySelector('[data-act="'+i+'"]').onclick = a.fn;
   });
 }
 
-// Composed locally from the same fields already on screen, so the demo never
-// depends on a network call or an API key. The inputs are structured, so
-// swapping in a Claude API call here is a drop-in change.
+// The evidence brief and the free-text answer are the same product asked a
+// fixed question, so they go through one generator rather than diverging into
+// two prose styles that drift apart. The building's own per-footprint
+// measurements ride along as structure-scoped facts.
 function writeBrief(p){
-  var c = CITIES[state.city];
-  var txt =
-'ENCROACHMENT NOTE — machine generated\n'+
-'Area: '+c.label+' — '+c.sub+'\n\n'+
-'A structure of approximately '+Math.round(p.area_in_meters)+' m² occupies land that the '+
-'Landsat record classified as surface water in the 1984–1999 epoch and that the 2000–2021 '+
-'epoch no longer shows as water.\n\n'+
-'About '+Math.round(p.lost_frac*100)+'% of the footprint lies on former water. Terrain '+
-'analysis places it '+(+p.hand_m).toFixed(1)+' m above the nearest natural drainage line, '+
-'with '+(+p.upstream_km2).toFixed(2)+' km² of catchment draining through this point.\n\n'+
-'Rainfall that this catchment previously discharged into the water body must now find '+
-'another route, and is discharged onto downstream land instead.\n\n'+
-'Sources: JRC Global Surface Water v1.4 (transition band); Google Open Buildings v3 '+
-'(footprint confidence '+Math.round(p.confidence*100)+'%); MERIT Hydro v1.0.1; '+
-'Dynamic World V1.\n'+
-'Derived from public satellite data. Requires ground verification before enforcement action.';
-  var el = document.getElementById('brief');
-  el.textContent = txt; el.style.display='block';
+  var f = state.selectedF;
+  if(!f || !state.samplers.buffers){
+    toast('Measurement layers missing — re-run gee_blue_grid.js, then ./fetch_layers.sh '
+      + state.city);
+    return;
+  }
+  var c = centroidOf(f);
+  var lngLat = {lng: c[0], lat: c[1]};
+  var rule = RULESETS[state.rule];
+  var ctx = siteContext(lngLat, rule, p);
+  // The brief is about this footprint, so the certificate and any follow-up
+  // question are about it too.
+  state.lastCheck = {m: ctx.m, out: ctx.verdict, ctx: ctx, lngLat: lngLat,
+                     rule: rule, at: new Date()};
+  ask('What happens because this structure stands here, and who is affected '
+    + 'downstream?', ctx);
 }
 
 // ===========================================================================
@@ -938,7 +1334,9 @@ var PROVENANCE = [
   ['Footprints',     'Google Open Buildings v3 — confidence ≥ 0.70, area ≥ 40 m²'],
   ['Imagery',        'Landsat 5 C02 L2 (2003–07), Sentinel-2 SR Harmonized (2023–25)'],
   ['Distance field', 'fastDistanceTransform, EPSG:32643 at 10 m, ceiling 255 m'],
-  ['Raster',         '2048 × 1195 over the study area, 6.36 m per pixel']
+  ['Raster',         '2048 × 1195 over the study area, 6.36 m per pixel'],
+  ['Upstream area',  'MERIT Hydro upa, log-packed: code = 255·log10(1+km²)/log10(1001), ceiling 1000 km²'],
+  ['Runoff',         'volumetric rational form: area × design storm depth × change in runoff coefficient']
 ];
 
 var ERROR_BUDGET = [
@@ -986,12 +1384,25 @@ function issueCertificate(){
 
 function renderCertificate(ck, snap){
   var m = ck.m, out = ck.out, rule = ck.rule, c = CITIES[state.city];
+  // An answer is only carried onto the certificate if it is about this site
+  // and was reasoned under this ruleset. Anything else is stale by definition.
+  var ans = (state.lastAnswer && state.lastAnswer.pack.site.ruleset === rule.id &&
+             Math.abs(state.lastAnswer.pack.site.lat - ck.lngLat.lat) < 1e-6 &&
+             Math.abs(state.lastAnswer.pack.site.lon - ck.lngLat.lng) < 1e-6)
+            ? state.lastAnswer : null;
   var iso = ck.at.toISOString();
   var lat = ck.lngLat.lat, lon = ck.lngLat.lng;
 
   var canon = [state.city, lat.toFixed(6), lon.toFixed(6), state.plotM, rule.id,
     rule.lakeM, rule.drainM, m.distPresent, m.distHistoric, m.distDrain,
-    m.lastWaterYear, m.occurrence, m.handM, out.d, iso].join('|');
+    m.lastWaterYear, m.occurrence, m.handM, out.d, iso,
+    // What the tool said, and what it said it from. A certificate whose
+    // reasoning was drawn from a different corpus version, or from a different
+    // set of sources, is a different document and its digest must differ.
+    (state.corpus ? state.corpus.corpus_version : 'no-corpus'),
+    (ans ? ans.answer.generator : 'none'),
+    (ans ? ans.pack.chunks.map(function(x){ return x.id; }).join(',') : '')
+    ].join('|');
   var ref = 'VBG/BLR/' + iso.slice(0,10).replace(/-/g,'') + '/'
           + String(nextSeq()).padStart(4,'0') + '-' + fnv1a(canon);
 
@@ -1030,7 +1441,16 @@ function renderCertificate(ck, snap){
         ['Distance to drainage line', metres(m.distDrain) + ' ± ' + UNCERTAINTY_M + ' m'],
         ['Last recorded as water', m.lastWaterYear || 'never, 1984–2021'],
         ['Water occurrence, 1984–2021', (m.occurrence === null ? '—' : m.occurrence + '%')],
-        ['Height above nearest drainage', metres(m.handM)]
+        ['Height above nearest drainage', metres(m.handM)],
+        ['Catchment draining through this point', ck.ctx && ck.ctx.rec.upaKm2 !== null
+           ? ck.ctx.rec.upaKm2 + ' km² (log-packed byte, decoded 10^(R/255·log10 1001) − 1)'
+           : 'not available — hydro layer not exported'],
+        ['Runoff displaced per design storm', ck.ctx && ck.ctx.rec.runoffDisplacedM3 !== null
+           ? ck.ctx.rec.runoffDisplacedM3 + ' m³, plausibly ' + ck.ctx.rec.runoffLoM3
+             + '–' + ck.ctx.rec.runoffHiM3 + ' m³'
+           : '—'],
+        ['Runoff arithmetic', 'plot area × ' + PARAMS.P_mm + ' mm design storm × '
+           + PARAMS.dC + ' change in runoff coefficient']
       ]) +
 
       '<h3>Rule applied</h3>' +
@@ -1044,6 +1464,21 @@ function renderCertificate(ck, snap){
         + 'determination by this tool. Confirm against the notification in force.</p>' +
 
       (snap ? '<h3>Site evidence</h3><img class="csnap" src="' + snap + '" alt="site">' : '') +
+
+      (ans ? '<h3>Answers given</h3>' +
+        '<p class="cnote"><b>' + ans.pack.question + '</b></p>' +
+        '<p class="cnote">' + substitute(ans.answer.narrative,
+            factMap(ans.pack)).text.replace(/\[[a-z0-9.\-]+\]/g, '') + '</p>' +
+        rows([
+          ['Composed by', ans.answer.generator === 'model'
+             ? 'language model, grounded on the sources below and validated '
+               + 'against them' : 'the tool itself, from the evidence pack'],
+          ['Corpus version', ans.pack.corpus_version || '—'],
+          ['Sources cited', ans.pack.chunks.map(function(x){ return x.id; }).join(', ')]
+        ]) +
+        '<p class="cnote">An answer is an explanation of the screening result '
+          + 'above, not an additional finding. Every figure in it is one of the '
+          + 'measurements already tabled.</p>' : '') +
 
       '<h3>Error budget</h3>' + rows(ERROR_BUDGET) +
 
@@ -1078,6 +1513,847 @@ function renderCertificate(ck, snap){
   // Mirroring it to the attribute is what makes it appear on paper.
   Array.prototype.forEach.call(document.querySelectorAll('.cin'), function(el){
     el.oninput = function(){ el.setAttribute('value', el.value); };
+  });
+}
+
+// ===========================================================================
+// MINI-RAG  — retrieval over the corpus, grounded on the live site record
+// ===========================================================================
+// The organising idea, in one line: the corpus is the parameter store and the
+// evidence pack is the only place numbers exist.
+//
+// Design rainfall, runoff coefficients, buffer distances, the error budget and
+// the exposure bands are all declared on corpus chunks and read from there. A
+// figure therefore cannot reach an answer without a chunk id attached to it,
+// because there is nowhere else in the system for it to have come from. The
+// model is then forbidden from typing a digit at all: it emits {{fact.id}}
+// placeholders and this file substitutes them. Together those two make
+// invented arithmetic structurally impossible rather than merely discouraged.
+
+// Byte-identical to tok() in build_corpus.py. If these two ever drift, the
+// client scores a query against postings built for a different vocabulary and
+// nothing anywhere reports an error.
+var STOP = {};
+('a an the and or of to in on at is are was were be been it its this that these '
++'those for from with as by if then than so such not no').split(' ')
+  .forEach(function(w){ STOP[w] = 1; });
+
+function tok(s){
+  return String(s).toLowerCase().split(/[^a-z0-9]+/).filter(function(t){
+    return t && !STOP[t] && (t.length > 1 || /^[0-9]$/.test(t));
+  });
+}
+
+// A keyword router, not a model. Five intents, each preferring certain kinds
+// of chunk. Ordered: the flood test runs first because a flooding question
+// asked in feasibility language is still a flooding question, and it is the
+// one that has to pull its refusals in.
+// Word boundaries are not decoration here. Without them "possible" matches
+// inside "responsible" and "prove" matches inside "approved", so a question
+// about who owns the land routes as feasibility and a question about whether
+// the authority will approve routes as evidence. Both were doing exactly that.
+var INTENT_RULES = [
+  ['flood',       /\b(flood\w*|inundat\w*|waterlog\w*|submerg\w*|drown\w*|overflow\w*)\b|\bwater level\b|\bhow deep\b|\bdepth\b/],
+  ['consequence', /\bwhat happens\b|\beffects?\b|\bimpacts?\b|\bconsequences?\b|\bdownstream\b|\bwho pays\b|\bharm\b|\bresult of\b/],
+  ['evidence',    /\bhow do you know\b|\bhow accurate\b|\baccuracy\b|\bsources?\b|\breliable\b|\bproven?\b|\bevidence\b|\bconfiden\w*\b|\btrust\b|\bwhere.*data\b/],
+  ['procedure',   /\bwhat do i do\b|\bnext steps?\b|\bwho decides\b|\bappeals?\b|\bprocess\b|\bprocedure\b|\bcertificate\b|\bapply\b|\bsurveys?\b/],
+  ['feasibility', /\ballow\w*\b|\bpermit\w*\b|\blegal\b|\blawful\b|\bsanction\w*\b|\bapprov\w*\b|\bfeasible\b|\bcan i\b|\bshould i\b|\bbuild here\b|\bpossible\b/]
+];
+
+// Refusals are routed from the question independently of the intent, because
+// a question can ask several things at once and only some of them are
+// answerable. "How much will the flood damage cost" is a flooding question AND
+// a costing question; routing it to one intent and refusing only that one
+// leaves the other silently unanswered, which is how a tool ends up appearing
+// to have declined to answer something it never noticed was asked.
+var REFUSAL_RULES = [
+  [/\bhow deep\b|\bdepths?\b|\bwater level\b|\blevel of\b|\bhow high\b|\bhow much water\b/,
+   'refusal.no-flood-depth-model', 'flood depth or level'],
+  [/\b(flood\w*|inundat\w*|waterlog\w*)\b/,
+   'refusal.not-a-flood-predictor', 'a prediction that this place will flood'],
+  [/\bcosts?\b|\bdamages?\b|\bcompensation\b|\brupees?\b|\bprice\b|\bworth\b|\bhow much money\b|\bloss(es)?\b/,
+   'refusal.cannot-price-damage', 'what the damage would cost'],
+  [/\bowns?\b|\bowners?\b|\bowned\b|\bwhose\b|\boccupants?\b|\bbuilders?\b|\bresponsible\b|\bliable\b|\bwho built\b/,
+   'refusal.cannot-identify-owner', 'who owns this land or is responsible for it'],
+  [/\b(il)?legal\b|\b(un)?lawful\b|\bcourt\b|\bprosecut\w*\b|\bmy rights\b|\blegal advice\b/,
+   'refusal.not-a-legal-determination', 'whether this is lawful'],
+  [/\bapprov\w*\b|\bwill it pass\b|\bchances?\b|\blikely\b|\bodds\b|\bget permission\b/,
+   'refusal.no-approval-prediction', 'whether the authority will approve it']
+];
+
+function routeRefusals(q){
+  var lq = String(q || '').toLowerCase(), out = [], seen = {};
+  REFUSAL_RULES.forEach(function(r){
+    if(r[1] in seen || !r[0].test(lq)) return;
+    seen[r[1]] = 1;
+    out.push({chunk: r[1], asked: r[2]});
+  });
+  return out;
+}
+
+// One sentence each, so a refusal appears in the prose and not only in a list
+// underneath it. Naming what is missing is the useful part.
+var REFUSAL_LINE = {
+  'refusal.no-flood-depth-model':
+    'How deep water stands anywhere downhill is not answerable from this data: '
+    + 'it needs the drain network, a fine elevation model, a local rainfall curve '
+    + 'and a hydraulic solver, none of which this tool holds.',
+  'refusal.not-a-flood-predictor':
+    'This is an evidence tool rather than a flood predictor, so it can say what '
+    + 'a development displaces and how the ground lies, and not whether a place '
+    + 'will flood.',
+  'refusal.cannot-price-damage':
+    'No monetary figure can be produced here. Costing damage needs asset values, '
+    + 'occupancy and a depth-damage relationship, none of which this tool holds; '
+    + 'the volume and the exposure class are the inputs to hand to someone who does.',
+  'refusal.cannot-identify-owner':
+    'Nothing here identifies an owner or an occupant. The building layer is '
+    + 'machine-derived geometry carrying no name, khata or survey number, so '
+    + 'responsibility comes from records held elsewhere and from a site visit.',
+  'refusal.not-a-legal-determination':
+    'Whether this is lawful turns on the notified boundary, the sanction record '
+    + 'and its date, none of which this tool reads. It reports measurements '
+    + 'against a buffer figure it was told to apply.',
+  'refusal.no-approval-prediction':
+    'Whether the authority approves is not predicted here. That would mean '
+    + 'modelling the officer rather than the ground.'
+};
+function routeIntent(q){
+  var lq = String(q || '').toLowerCase();
+  for(var i=0;i<INTENT_RULES.length;i++)
+    if(INTENT_RULES[i][1].test(lq)) return INTENT_RULES[i][0];
+  return 'feasibility';
+}
+var INTENT_KINDS = {
+  flood:       {refusal:1, hydro:1, outcome:1, limit:1},
+  feasibility: {rule:1, outcome:1, error:1},
+  consequence: {hydro:1, precedent:1, outcome:1},
+  procedure:   {rule:1, outcome:1, scope:1},
+  evidence:    {method:1, limit:1, error:1}
+};
+
+function expand(terms, syn){
+  var out = terms.slice();
+  terms.forEach(function(t){ if(syn[t]) out = out.concat(syn[t]); });
+  return out;
+}
+
+// Standard BM25 against the postings the build step precomputed.
+function bm25(corpus, terms){
+  var ix = corpus.index, n = corpus.chunks.length, sc = new Array(n);
+  for(var i=0;i<n;i++) sc[i] = 0;
+  var seen = {};
+  terms.forEach(function(t){
+    if(seen[t] || !ix.postings[t]) return;
+    seen[t] = 1;
+    var df = ix.df[t];
+    var idf = Math.log(1 + (ix.N - df + 0.5) / (df + 0.5));
+    ix.postings[t].forEach(function(pair){
+      var d = pair[0], f = pair[1];
+      var norm = f + ix.k1 * (1 - ix.b + ix.b * ix.doclen[d] / ix.avgdl);
+      sc[d] += idf * (f * (ix.k1 + 1)) / norm;
+    });
+  });
+  return sc;
+}
+
+// The trigger channel. A declarative list, never eval. A clause naming a null
+// field fails unless the op is explicitly about nullness, so an absent hydro
+// layer silently disables the upstream chunks rather than matching everything.
+function testCond(rec, f, op, v){
+  var x = rec[f];
+  if(op === 'isnull')  return x === null || x === undefined;
+  if(op === 'notnull') return x !== null && x !== undefined;
+  if(x === null || x === undefined) return false;
+  if(op === 'in')
+    return Array.isArray(x) ? x.indexOf(v) !== -1
+         : Array.isArray(v) ? v.indexOf(x) !== -1 : false;
+  if(op === 'between') return x >= v[0] && x <= v[1];
+  if(op === 'eq') return x === v;
+  if(op === 'ne') return x !== v;
+  if(typeof x !== 'number' || typeof v !== 'number') return false;
+  if(op === 'lt')  return x <  v;
+  if(op === 'lte') return x <= v;
+  if(op === 'gt')  return x >  v;
+  if(op === 'gte') return x >= v;
+  return false;
+}
+function firesOn(chunk, rec){
+  for(var i=0;i<chunk.when.length;i++){
+    var g = chunk.when[i], all = true;
+    for(var j=0;j<g.length;j++)
+      if(!testCond(rec, g[j][0], g[j][1], g[j][2])){ all = false; break; }
+    if(all) return g.map(function(c){
+      return c[0] + ' ' + c[1] + (c[2] === null ? '' : ' ' + JSON.stringify(c[2]));
+    }).join(' and ');
+  }
+  return null;
+}
+
+var PACK_K = 8;          // retrieved on score
+var PACK_CAP = 12;       // plus forced, hard ceiling
+var KIND_CAP = {precedent: 3};
+var DEFAULT_KIND_CAP = 2;
+
+function retrieve(question, rec){
+  var corpus = state.corpus;
+  if(!corpus) return {chunks: [], intent: routeIntent(question)};
+  var intent = routeIntent(question);
+  rec.intent = intent;
+
+  var terms = expand(tok(question), corpus.synonyms);
+  var lex = bm25(corpus, terms);
+  var lexMax = Math.max.apply(null, lex.concat([0])) || 1;
+
+  var trig = corpus.chunks.map(function(c){
+    var why = firesOn(c, rec);
+    if(why) return {s: c.weight, why: 'trigger: ' + why};
+    if(c.always) return {s: 0.5 * c.weight, why: 'always'};
+    return {s: 0, why: null};
+  });
+  var trigMax = Math.max.apply(null, trig.map(function(t){return t.s;}).concat([0])) || 1;
+
+  // Weighted sum rather than reciprocal rank fusion. RRF discards magnitude,
+  // and magnitude is the whole point here: "this plot sits ON a former water
+  // body" has to outrank any amount of wording similarity.
+  var scored = corpus.chunks.map(function(c, i){
+    var bonus = (INTENT_KINDS[intent] && INTENT_KINDS[intent][c.kind]) ? 0.15 : 0;
+    var t = trig[i].s / trigMax, l = lex[i] / lexMax;
+    var why = trig[i].why || (lex[i] > 0 ? 'bm25 ' + l.toFixed(2) : null);
+    return {c: c, score: 0.65*t + 0.35*l + bonus, why: why, i: i};
+  }).filter(function(x){ return x.score > 0.02 && x.why; });
+  scored.sort(function(a,b){ return b.score - a.score; });
+
+  // Forced, before anything is scored away.
+  //  1. the citation spine: whichever branches of decide() actually fired
+  //  2. the refusal gate on a flooding question
+  //  3. the missing-building-layer notice, so a thin answer says why it is thin
+  var forced = [];
+  (rec.codes || []).forEach(function(code){
+    var id = CODE_CHUNK[code];
+    if(id) forced.push([id, 'forced: decide() took the ' + code + ' branch']);
+  });
+  routeRefusals(question).forEach(function(r){
+    forced.push([r.chunk, 'forced: the question asks about ' + r.asked]);
+  });
+  if(intent === 'flood'){
+    forced.push(['refusal.not-a-flood-predictor', 'forced: flooding question']);
+    forced.push(['refusal.no-flood-depth-model',  'forced: flooding question']);
+  }
+  if(!rec.hasBuildings)
+    forced.push(['scope.building-layer-absent', 'forced: no building layer loaded']);
+
+  var byId = {};
+  corpus.chunks.forEach(function(c){ byId[c.id] = c; });
+
+  var out = [], taken = {}, kinds = {};
+  function push(c, why, ignoreCaps){
+    if(!c || taken[c.id] || out.length >= PACK_CAP) return;
+    // Two buffer regimes in one answer is worse than one: the reader cannot
+    // tell which was applied. Keep the active one and drop its rival.
+    for(var i=0;i<out.length;i++)
+      if((out[i].conflicts || []).indexOf(c.id) !== -1) return;
+    if((c.conflicts || []).some(function(x){ return taken[x]; })) return;
+    var cap = KIND_CAP[c.kind] || DEFAULT_KIND_CAP;
+    if(!ignoreCaps && c.kind !== 'rule' && (kinds[c.kind] || 0) >= cap) return;
+    kinds[c.kind] = (kinds[c.kind] || 0) + 1;
+    taken[c.id] = 1;
+    out.push({id:c.id, title:c.title, kind:c.kind, authority:c.authority,
+              source:c.source, url:c.url, verify:c.verify, body:c.body,
+              conflicts:c.conflicts, never_alone:c.never_alone, why:why});
+  }
+  forced.forEach(function(f){ push(byId[f[0]], f[1], true); });
+  scored.slice(0, PACK_K + 8).forEach(function(x){
+    if(out.length < Math.min(PACK_CAP, forced.length + PACK_K)) push(x.c, x.why);
+  });
+  return {chunks: out, intent: intent};
+}
+
+// ---------------------------------------------------------------------------
+// The evidence pack
+// ---------------------------------------------------------------------------
+function fact(id, label, v, u, opts){
+  if(v === null || v === undefined) return null;
+  opts = opts || {};
+  var text = opts.text !== undefined ? opts.text
+           : (u ? v + ' ' + u : String(v));
+  var f = {id:id, label:label, v:v, text:text};
+  if(u) f.u = u;
+  Object.keys(opts).forEach(function(k){ if(k !== 'text') f[k] = opts[k]; });
+  return f;
+}
+
+function packFacts(ctx){
+  var r = ctx.rec, F = [];
+  function add(f){ if(f) F.push(f); }
+  var ceil = function(v){ return v !== null && v >= 255; };
+
+  add(fact('fact.distPresent', 'Distance to the water edge today', r.distPresent, 'm',
+    {pm: UNCERTAINTY_M, ceiling: ceil(r.distPresent), text: metres(r.distPresent),
+     src: 'buffers.png:R', chunk: 'method.byte-packing.buffers'}));
+  add(fact('fact.distHistoric', 'Distance to the 1984–99 water edge', r.distHistoric, 'm',
+    {pm: UNCERTAINTY_M, ceiling: ceil(r.distHistoric), text: metres(r.distHistoric),
+     src: 'buffers.png:G', chunk: 'method.byte-packing.buffers'}));
+  add(fact('fact.distDrain', 'Distance to the nearest drainage line', r.distDrain, 'm',
+    {pm: UNCERTAINTY_M, ceiling: ceil(r.distDrain), text: metres(r.distDrain),
+     src: 'buffers.png:B', chunk: 'limit.merit-90m-drain-order'}));
+  add(fact('fact.lastWaterYear', 'Last recorded as water', r.lastWaterYear, '',
+    {src: 'history.png:R', chunk: 'method.byte-packing.history'}));
+  add(fact('fact.occurrence', 'Share of observations that were water', r.occurrence, '%',
+    {text: r.occurrence + '%', src: 'history.png:G',
+     chunk: 'method.byte-packing.history'}));
+  add(fact('fact.handM', 'Height above the nearest drainage line', r.handM, 'm',
+    {ceiling: ceil(r.handM), text: metres(r.handM), src: 'history.png:B',
+     chunk: 'method.hand-merit-90m'}));
+  add(fact('fact.handClass', 'Topographic exposure', r.handClass, '',
+    {chunk: 'hydro.hand.exposure-classes'}));
+  add(fact('fact.flowClass', 'Position relative to a flow path', r.flowClass, '',
+    {chunk: 'hydro.flowpath.definition'}));
+  if(r.retreatM !== null && r.retreatM > 30)
+    add(fact('fact.retreatM', 'Shoreline retreat at this plot', r.retreatM, 'm',
+      {pm: UNCERTAINTY_M, text: r.retreatM + ' m',
+       note: 'the two distances share most of their error, so the budget on the '
+           + 'difference is the same ±' + UNCERTAINTY_M + ' m, not its double',
+       derived_from: ['fact.distPresent','fact.distHistoric'],
+       chunk: 'outcome.shoreline-disagreement'}));
+  add(fact('fact.plotAreaM2', 'Assumed plot area', r.plotAreaM2, 'm²',
+    {text: r.plotAreaM2 + ' m²', note: 'assumed from the ' + r.plotM
+       + ' m frontage entered, not measured', chunk: 'rule.buffer.plot-not-point'}));
+  add(fact('fact.upaKm2', 'Catchment draining through this point', r.upaKm2, 'km²',
+    {text: r.upaKm2 + ' km²', src: 'hydro.png:R',
+     chunk: 'method.upa-definition'}));
+  add(fact('fact.distTrunk', 'Distance to the nearest trunk channel', r.distTrunk, 'm',
+    {pm: UNCERTAINTY_M, ceiling: ceil(r.distTrunk), text: metres(r.distTrunk),
+     src: 'hydro.png:G', chunk: 'method.byte-packing.hydro'}));
+  add(fact('fact.runoffDisplacedM3', 'Runoff displaced per design storm',
+    r.runoffDisplacedM3, 'm³',
+    {text: r.runoffDisplacedM3 + ' m³',
+     range: r.runoffLoM3 === null ? null : [r.runoffLoM3, r.runoffHiM3],
+     derived_from: ['fact.plotAreaM2','param.P_mm','param.dC'],
+     chunk: 'hydro.displacement.arithmetic'}));
+  add(fact('fact.runoffRange', 'Plausible range of that volume',
+    r.runoffLoM3 === null ? null : r.runoffLoM3, 'm³',
+    {text: r.runoffLoM3 + '–' + r.runoffHiM3 + ' m³',
+     chunk: 'hydro.displacement.arithmetic'}));
+  add(fact('fact.runoffAnnualM3', 'Runoff displaced over a year', r.runoffAnnualM3, 'm³',
+    {text: r.runoffAnnualM3 + ' m³', chunk: 'hydro.displacement.arithmetic'}));
+  add(fact('fact.tankerEquiv', 'That volume as water tankers', r.tankerEquiv, '',
+    {text: r.tankerEquiv + ' tankers', chunk: 'hydro.tanker-equivalent'}));
+  add(fact('fact.nearestFlaggedM', 'Nearest already-flagged structure',
+    r.nearestFlaggedM, 'm',
+    {text: r.nearestFlaggedM + ' m', scope: 'neighbourhood',
+     chunk: 'method.buildings-open-buildings-v3'}));
+  var B = ctx.building;
+  if(B){
+    add(fact('fact.building.areaM2', 'Footprint area', Math.round(B.area_in_meters), 'm²',
+      {text: Math.round(B.area_in_meters) + ' m²', scope: 'structure',
+       chunk: 'method.buildings-open-buildings-v3'}));
+    add(fact('fact.building.lostPct', 'Share of the footprint on former water',
+      Math.round(B.lost_frac*100), '%',
+      {text: Math.round(B.lost_frac*100) + '%', scope: 'structure',
+       chunk: 'method.water.one-source-jrc-transition'}));
+    add(fact('fact.building.flowPct', 'Share of the footprint in a flow path',
+      Math.round(B.flow_frac*100), '%',
+      {text: Math.round(B.flow_frac*100) + '%', scope: 'structure',
+       chunk: 'hydro.flowpath.definition'}));
+    add(fact('fact.building.upstreamKm2', 'Catchment draining through the footprint',
+      +(+B.upstream_km2).toFixed(2), 'km²',
+      {text: (+B.upstream_km2).toFixed(2) + ' km²', scope: 'structure',
+       chunk: 'method.upa-definition'}));
+    add(fact('fact.building.handM', 'Footprint height above the nearest drainage',
+      +(+B.hand_m).toFixed(1), 'm',
+      {text: (+B.hand_m).toFixed(1) + ' m', scope: 'structure',
+       chunk: 'method.hand-merit-90m'}));
+    add(fact('fact.building.confidence', 'Footprint detection confidence',
+      Math.round(B.confidence*100), '%',
+      {text: Math.round(B.confidence*100) + '%', scope: 'structure',
+       chunk: 'method.buildings-open-buildings-v3'}));
+  }
+  ctx.neighbours.forEach(function(n, i){
+    add(fact('fact.neighbour' + i + '.upstream', 'Catchment through a nearby flagged structure',
+      +(+n.p.upstream_km2).toFixed(2), 'km²',
+      {text: (+n.p.upstream_km2).toFixed(2) + ' km²', scope: 'neighbourhood',
+       chunk: 'method.buildings-open-buildings-v3'}));
+  });
+  return F;
+}
+
+function packParams(used){
+  var out = [], P = state.corpus ? state.corpus.params : {};
+  [['param.P_mm','P_mm','mm','design storm depth'],
+   ['param.C_pre','C_pre','','runoff coefficient before development'],
+   ['param.C_post','C_post','','runoff coefficient after development'],
+   ['param.dC','dC','','the change between them'],
+   ['param.tankerL','tankerL','L','one standard water tanker'],
+   ['param.uncertaintyM','uncertaintyM','m','the error budget on every distance']
+  ].forEach(function(row){
+    var e = P[row[1]];
+    var v = e ? e.v : (row[1] === 'uncertaintyM' ? UNCERTAINTY_M : PARAMS[row[1]]);
+    if(v === undefined) return;
+    out.push({id: row[0], label: row[3], v: v, u: row[2],
+              text: row[2] ? v + ' ' + row[2] : String(v),
+              chunk: e ? e.chunk : null, verify: !!(e && e.verify)});
+  });
+  return out;
+}
+
+function buildPack(question, ctx){
+  var got = retrieve(question, ctx.rec);
+  var facts = packFacts(ctx);
+  var routed = routeRefusals(question);
+  if(got.intent === 'flood' && !routed.some(function(r){
+       return r.chunk === 'refusal.no-flood-depth-model'; }))
+    routed.push({chunk: 'refusal.no-flood-depth-model', asked: 'flood depth or level'});
+  // Only the ones that actually made it into the pack: a refusal the model
+  // cannot read is a refusal it cannot make.
+  routed = routed.filter(function(r){
+    return got.chunks.some(function(c){ return c.id === r.chunk; }); });
+  return {
+    pack_version: 1,
+    corpus_version: state.corpus ? state.corpus.corpus_version : null,
+    question: question,
+    intent: got.intent,
+    site: {city: ctx.rec.city, lat: +ctx.rec.lat.toFixed(6), lon: +ctx.rec.lon.toFixed(6),
+           in_aoi: ctx.rec.inAoi, plot_m: ctx.rec.plotM, ruleset: ctx.rec.ruleId,
+           sampled_at: new Date().toISOString()},
+    verdict: {code: ctx.verdict.d, label: OUTCOME[ctx.verdict.d].t,
+              reasons: ctx.verdict.why,
+              codes: ctx.verdict.codes || []},
+    facts: facts,
+    params: packParams(),
+    chunks: got.chunks,
+    refusals_required: routed
+  };
+}
+
+// ---------------------------------------------------------------------------
+// GENERATION
+// ---------------------------------------------------------------------------
+// Three tiers. Tier 0 is a deterministic composer that renders immediately,
+// before any network attempt is made. It is not a fallback that appears after
+// a failure; it is the default that the model later replaces. That ordering is
+// the whole of the "cannot fail on stage" property — pull the cable and the
+// page behaves identically, minus one paragraph.
+//
+// Tier 1 replaces the narrative paragraph only. The verdict badge, the numbers
+// table and the source list are deterministic and are never regenerated.
+// Tier 2 is a validation failure, which reverts to Tier 0 and says why.
+
+function factMap(pack){
+  var m = {};
+  pack.facts.forEach(function(f){ m[f.id] = f; });
+  pack.params.forEach(function(p){ m[p.id] = p; });
+  return m;
+}
+
+// The model writes {{fact.distPresent}}; the client writes the number. Any
+// placeholder naming something not in the pack is a failure, not a blank.
+function substitute(text, fm){
+  var missing = [];
+  var out = text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, function(_, id){
+    if(!fm[id]){ missing.push(id); return '[' + id + '?]'; }
+    return fm[id].text;
+  });
+  return {text: out, missing: missing};
+}
+
+function composeOffline(pack){
+  var fm = factMap(pack), r = pack.site, v = pack.verdict;
+  var has = function(id){ return !!fm[id]; };
+  var t = function(id){ return fm[id] ? fm[id].text : null; };
+  var r_handClass = function(){ return fm['fact.handClass'] ? fm['fact.handClass'].v : null; };
+  var r_flowClass = function(){ return fm['fact.flowClass'] ? fm['fact.flowClass'].v : null; };
+  var parts = [];
+
+  var refused = pack.refusals_required || [];
+  var refusalLines = refused.map(function(x){ return REFUSAL_LINE[x.chunk]; })
+                            .filter(Boolean);
+
+  if(!r.in_aoi){
+    parts.push('This point lies outside the mapped study area, so no measurement '
+      + 'exists for it: no distance, no exposure class and no runoff volume. '
+      + 'Extending coverage means re-running the extraction over a rectangle '
+      + 'that includes it.');
+    // The refusals still hold outside the study area, and several of them hold
+    // for reasons that have nothing to do with coverage.
+    parts = parts.concat(refusalLines);
+    return {narrative: parts.join(' '),
+            cited: ['refusal.outside-study-area'].concat(
+              refused.map(function(x){ return x.chunk; })),
+            what: ['Re-run the Earth Engine extraction over a study area that '
+                 + 'contains this point.'], refused: refused, generator: 'offline'};
+  }
+
+  // What the screening found, in the tool's own words, never re-derived.
+  parts.push(v.reasons.join(' '));
+
+  // How the ground lies is the site-specific half of a flooding answer, and it
+  // was the half the composer used to leave out: exposure and flow class are
+  // the two most decision-relevant fields for this question and both were
+  // being retrieved and then ignored.
+  var EXPOSURE_LINE = {
+    AT_DRAINAGE_LEVEL:
+      'The plot stands at the level of the channel it drains into, which is the '
+      + 'lowest band this tool records: ground like that receives water first and '
+      + 'releases it last.',
+    DEEP_IN_A_WATER_PATH:
+      'The plot sits inside a water path, low enough relative to its channel that '
+      + 'retention and a plinth condition are the ordinary response.',
+    LOW_GROUND:
+      'The plot is on low ground by the definition this tool uses for flood-prone '
+      + 'land — a topographic statement, not a flood zone.',
+    MARGINAL:
+      'The plot stands only marginally above the channel it drains into.',
+    ELEVATED:
+      'The plot stands well above the channel it drains into, so it is not itself '
+      + 'in the first ground to flood.',
+    UNKNOWN:
+      'Height above the nearest drainage line reads at the byte ceiling here, so '
+      + 'the exposure band is unresolved rather than high.'
+  };
+  var FLOW_LINE = {
+    ON_FLOW_PATH:
+      'It also sits directly on a terrain-derived flow path, so building across it '
+      + 'obstructs water that was already passing through — typically the larger '
+      + 'effect by far, and the one this tool cannot size.',
+    ADJACENT:
+      'It sits immediately beside a terrain-derived flow path, within one step of '
+      + 'the distance transform.',
+    NEAR:
+      'A terrain-derived flow path passes close by, near enough that the notified '
+      + 'drain alignment governs rather than this measurement.'
+  };
+
+  if(pack.intent === 'flood' || pack.intent === 'consequence'){
+    // decide() already states the height and the condition when the low-ground
+    // branch fires, and when the drainage branch fires it already names the
+    // channel. Repeating either is padding, and padding in a screening note
+    // reads as the tool having more to say than it does.
+    var said = v.codes || [];
+    if(said.indexOf('conditions.low-ground') === -1 && EXPOSURE_LINE[r_handClass()])
+      parts.push(EXPOSURE_LINE[r_handClass()]);
+    if(said.indexOf('refer.near-drainage') === -1 && FLOW_LINE[r_flowClass()])
+      parts.push(FLOW_LINE[r_flowClass()]);
+
+    if(has('fact.runoffDisplacedM3')){
+      // Said plainly, because the figure is identical for two plots of the same
+      // size on opposite sides of the catchment and a reader will otherwise take
+      // it for something measured here.
+      parts.push('Sealing the assumed ' + t('fact.plotAreaM2') + ' footprint sends '
+        + 'roughly ' + t('fact.runoffDisplacedM3') + ' of additional runoff downhill '
+        + 'per design storm, plausibly ' + t('fact.runoffRange') + ' — about '
+        + t('fact.tankerEquiv') + ' of water, and around ' + t('fact.runoffAnnualM3')
+        + ' over a year. That figure follows from the footprint and the design '
+        + 'storm alone, not from anything measured at this location, and it is a '
+        + 'displaced volume rather than a flood depth.');
+    }
+    if(has('fact.upaKm2'))
+      parts.push('About ' + t('fact.upaKm2') + ' of catchment drains through this '
+        + 'point, so what the plot obstructs can matter more than what it sheds.');
+    else
+      parts.push('How much catchment drains through this point is not available for '
+        + 'this city — the hydro layer has not been exported — so only the plot’s '
+        + 'own contribution can be quantified here.');
+  }
+
+  if(pack.intent === 'feasibility'){
+    parts.push('None of the four screening outcomes is an approval. The deciding '
+      + 'authority is the sanctioning authority, and what this produces is an '
+      + 'input to that decision under the '
+      + (r.ruleset === 'ngt' ? 'wider' : 'narrower') + ' of the two buffer regimes.');
+  }
+  if(pack.intent === 'procedure'){
+    parts.push(v.code === 'NO_OBJECTION'
+      ? 'Nothing here needs resolving before the application is considered on '
+        + 'its other merits, and the screening result should be filed with it.'
+      : 'The next step is the specific one this screening asks for: establish '
+        + 'the plot boundary against the notified lake or drain boundary on the '
+        + 'ground, and check the alignment held against this survey number. A '
+        + 'screening certificate can be issued now to carry the measurements and '
+        + 'their uncertainty into the file.');
+  }
+  if(pack.intent === 'evidence'){
+    parts.push('Nothing in this pipeline is trained: every flag traces to a '
+      + 'published dataset and a stated threshold. Every distance carries about '
+      + t('param.uncertaintyM') + ' of uncertainty, dominated by the source '
+      + 'resolution rather than by anything the tool does.');
+  }
+
+  var what = [];
+  if(v.code === 'REFER' || v.code === 'REJECT')
+    what.push('A ground survey establishing the plot boundary against the notified '
+      + 'lake or drain boundary.');
+  if(r.ruleset === 'state')
+    what.push('Applying the wider buffer regime instead, which is confidently '
+      + 'testable at this measurement uncertainty where the narrower one is not.');
+  else
+    what.push('Applying the narrower buffer regime instead, under which the same '
+      + 'measurements can screen differently.');
+  if(has('fact.retreatM'))
+    what.push('Confirmation of which shoreline the setback is measured from, given '
+      + 'the two records disagree by ' + t('fact.retreatM') + '.');
+  if(!pack.site.in_aoi) what = [];
+
+  parts = parts.concat(refusalLines);
+
+  return {narrative: parts.join(' '),
+          cited: pack.chunks.slice(0,4).map(function(c){ return c.id; }),
+          what: what, refused: refused, generator: 'offline'};
+}
+
+// The contract. Eight clauses, each of which validateAnswer can actually test —
+// a rule the validator cannot check is a suggestion, not a contract.
+var CONTRACT = [
+ 'You are a screening assistant for a municipal plan-sanction desk in Bengaluru.',
+ 'You explain a screening result that has already been reached from satellite',
+ 'and terrain measurements. You never reach one yourself.',
+ '',
+ '1. SCOPE. This screens; it does not approve. None of the four outcomes is an',
+ '   approval, and you must not imply that any of them is one.',
+ '2. AUTHORITY. The FACTS and CHUNKS given to you are your only knowledge. If',
+ '   something is not in them, you do not know it. Do not draw on anything else',
+ '   you know about Bengaluru, lakes, or planning law.',
+ '3. NUMBERS. Never type a digit. Refer to every value by its placeholder, in',
+ '   double braces: {{fact.distPresent}}, {{param.P_mm}}. Spell small integers',
+ '   as words. Never perform arithmetic: derived values are already in FACTS.',
+ '4. VERDICT. Set verdict_echo to exactly the verdict code given. Explain that',
+ '   verdict. Do not soften it, strengthen it, or substitute your own.',
+ '5. REFUSAL. If the question asks for flood depth, level, extent, probability,',
+ '   damage cost, legality, or the identity of an owner, add an entry to',
+ '   "refused" citing the matching refusal chunk, then answer whatever part of',
+ '   the question the facts do support.',
+ '6. UNCERTAINTY. Every distance carries the stated error budget. Never call a',
+ '   distance exact, and never describe two distances as different when they',
+ '   differ by less than the budget.',
+ '7. LENGTH. At most 180 words of narrative. Plain sentences, no headings, no',
+ '   lists, no markdown.',
+ '8. CORROBORATION. Precedent chunks describe other places and other years.',
+ '   Never attribute one to this plot. An answer citing only precedent chunks',
+ '   is invalid.',
+ '',
+ 'Cite chunks inline in square brackets by id, like [outcome.reject.meaning].'
+].join('\n');
+
+var ANSWER_TOOL = {
+  name: 'emit_answer',
+  description: 'Return the screening explanation in structured form.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      verdict_echo: {type:'string', enum:['REJECT','REFER','CONDITIONS','NO_OBJECTION']},
+      narrative: {type:'string', description:'At most 180 words. No digits: use {{fact.id}} placeholders.'},
+      cited: {type:'array', items:{type:'string'}},
+      numbers_used: {type:'array', items:{type:'string'}},
+      what_would_change_this: {type:'array', items:{type:'string'}},
+      refused: {type:'array', items:{type:'object', properties:{
+        asked:{type:'string'}, chunk:{type:'string'}}, required:['asked','chunk']}}
+    },
+    required: ['verdict_echo','narrative','cited','numbers_used','what_would_change_this','refused']
+  }
+};
+
+var BANNED = [
+  /\bmetres? (?:deep|of water)\b/i, /\bwater (?:level|depth) (?:of|will|would)\b/i,
+  /\bwill flood\b/i, /\bprobability of flooding\b/i, /\breturn period of\b/i,
+  /\bwill be approved\b/i, /\bis (?:il)?legal\b/i, /\bwe (?:recommend|approve)\b/i
+];
+
+function validateAnswer(a, pack){
+  if(!a || typeof a !== 'object') return 'the model returned nothing usable';
+  if(a.verdict_echo !== pack.verdict.code)
+    return 'it echoed ' + a.verdict_echo + ' where the screening reached '
+         + pack.verdict.code;
+
+  var fm = factMap(pack);
+  var sub = substitute(String(a.narrative || ''), fm);
+  if(sub.missing.length)
+    return 'it referred to ' + sub.missing.join(', ') + ', which is not in the pack';
+
+  // Every digit in the narrative must have arrived through a placeholder. Strip
+  // the placeholders and the bracketed citations (chunk ids carry digits) and
+  // nothing numeric may remain. This is what makes invented arithmetic a
+  // detectable event rather than a plausible sentence.
+  var bare = String(a.narrative || '')
+    .replace(/\{\{[^}]*\}\}/g, '')
+    .replace(/\[[^\]]*\]/g, '');
+  if(/\d/.test(bare))
+    return 'it typed a number directly instead of citing one: "'
+         + (bare.match(/[^.]*\d[^.]*/) || [''])[0].trim() + '"';
+
+  var ids = {};
+  pack.chunks.forEach(function(c){ ids[c.id] = c; });
+  var badCite = (a.cited || []).filter(function(id){ return !ids[id]; });
+  if(badCite.length) return 'it cited ' + badCite.join(', ') + ', which is not in the pack';
+
+  var badNum = (a.numbers_used || []).filter(function(id){ return !fm[id]; });
+  if(badNum.length) return 'it claimed to use ' + badNum.join(', ') + ', which does not exist';
+
+  if((a.cited || []).length && (a.cited || []).every(function(id){ return ids[id].never_alone; }))
+    return 'it cited only corroborating precedent, which describes other places';
+
+  var need = (pack.refusals_required || []).map(function(x){ return x.chunk; });
+  var made = (a.refused || []).map(function(x){ return x.chunk; });
+  var skipped = need.filter(function(id){ return made.indexOf(id) === -1; });
+  if(skipped.length)
+    return 'it answered without refusing the part it cannot answer: '
+         + skipped.join(', ');
+
+  for(var i=0;i<BANNED.length;i++)
+    if(BANNED[i].test(a.narrative || ''))
+      return 'it used a phrase this tool must not use: ' + BANNED[i];
+
+  if(sub.text.split(/\s+/).length > 260)
+    return 'the narrative ran well past the length the contract allows';
+  return null;
+}
+
+// The key lives in the server process and never reaches the browser. An absent
+// key is a first-class state, not an error: /ask answers 503 and the page stays
+// on the deterministic answer it has already rendered.
+function askServer(pack){
+  var ctl = new AbortController();
+  var timer = setTimeout(function(){ ctl.abort(); }, 8000);
+  return fetch('/ask', {
+    method: 'POST', signal: ctl.signal,
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({pack: pack, contract: CONTRACT, tool: ANSWER_TOOL})
+  }).then(function(r){
+    clearTimeout(timer);
+    if(r.status === 503) return r.json().then(function(j){
+      return {unavailable: j.reason || 'no model configured'}; });
+    if(!r.ok) return r.text().then(function(t){
+      return {unavailable: 'the model endpoint answered ' + r.status + ': ' + t.slice(0,120)}; });
+    return r.json();
+  }).catch(function(e){
+    clearTimeout(timer);
+    return {unavailable: e.name === 'AbortError' ? 'the model did not answer in time'
+                                                 : 'no model endpoint reachable'};
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The ask
+// ---------------------------------------------------------------------------
+function esc(s){
+  return String(s).replace(/[&<>"]/g, function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];
+  });
+}
+
+// Inline [chunk.id] citations become footnote markers against the source list,
+// so the prose stays readable and every claim keeps its provenance.
+function linkCitations(text, order){
+  return esc(text).replace(/\[([a-z0-9.\-]+)\]/g, function(whole, id){
+    var n = order.indexOf(id);
+    return n === -1 ? '' : '<sup class="cite">' + (n+1) + '</sup>';
+  });
+}
+
+function renderAnswer(pack, ans, note){
+  var host = document.getElementById('answer');
+  if(!host) return;
+  var fm = factMap(pack);
+  var body = substitute(ans.narrative, fm).text;
+
+  // Number the sources in the order the reader meets them, which means
+  // narrative order first and anything cited but not marked inline after it.
+  // Numbering them in pack order instead leaves the markers running 1, 3, 2
+  // down the paragraph.
+  var order = [];
+  (body.match(/\[([a-z0-9.\-]+)\]/g) || []).forEach(function(mch){
+    var id = mch.slice(1, -1);
+    if(order.indexOf(id) === -1) order.push(id);
+  });
+  (ans.cited || []).forEach(function(id){
+    if(order.indexOf(id) === -1) order.push(id);
+  });
+  var byId = {};
+  pack.chunks.forEach(function(c){ byId[c.id] = c; });
+  var sources = order.map(function(id){ return byId[id]; }).filter(Boolean);
+  if(!sources.length) sources = pack.chunks.slice(0,3);
+  order = sources.map(function(c){ return c.id; });
+
+  var nums = (ans.numbers_used || []).map(function(id){ return fm[id]; })
+    .filter(Boolean);
+  if(!nums.length)
+    nums = pack.facts.filter(function(f){ return /dist|runoff|hand|upa/.test(f.id); })
+                     .slice(0,5);
+
+  host.innerHTML =
+    '<div class="ahead"><span class="q">' + esc(pack.question) + '</span>' +
+      '<span class="gen">' + (ans.generator === 'model'
+        ? 'model answer, grounded on ' + pack.chunks.length + ' sources'
+        : 'composed locally from the evidence pack') + '</span></div>' +
+    (note ? '<div class="awarn">' + esc(note) + '</div>' : '') +
+    '<div class="atext">' + linkCitations(body, order) + '</div>' +
+    (ans.refused && ans.refused.length ? '<div class="arefuse">' +
+      ans.refused.map(function(r){
+        var c = pack.chunks.filter(function(x){ return x.id === r.chunk; })[0];
+        return 'Not answerable here: ' + esc(r.asked) +
+          (c ? ' — ' + esc(c.title).toLowerCase() : '');
+      }).join('<br>') + '</div>' : '') +
+    (nums.length ? '<div class="asec">Measurements used</div>' +
+      nums.map(function(f){
+        return '<div class="metric"><span class="k">' + esc(f.label) +
+          (f.scope === 'neighbourhood' ? ' <i>(nearby, not this plot)</i>' : '') +
+          '</span><span class="v">' + esc(f.text) +
+          (f.pm ? ' <i>± ' + f.pm + '</i>' : '') + '</span></div>';
+      }).join('') : '') +
+    (ans.what && ans.what.length ? '<div class="asec">What would change this</div>' +
+      '<ul class="awhat">' + ans.what.map(function(w){
+        return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '') +
+    '<div class="asec">Sources</div>' +
+    sources.map(function(c, i){
+      return '<div class="asrc"><span class="n">' + (i+1) + '</span>' +
+        '<span><b>' + esc(c.title) + '</b>' +
+        '<i>' + esc(c.source || c.authority) +
+        (c.verify ? ' · drafted, not yet checked against the original' : '') + '</i>' +
+        (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">source &#8599;</a>' : '') +
+        '<em>' + esc(c.why || '') + '</em></span></div>';
+    }).join('');
+  host.style.display = 'block';
+}
+
+function ask(question, ctxOverride){
+  question = String(question || '').trim();
+  if(!question) return;
+  var ctx = ctxOverride || (state.lastCheck && state.lastCheck.ctx);
+  if(!ctx){ toast('Click a plot first — an answer needs a site to be about.'); return; }
+  if(state.asking) return;
+  state.asking = true;
+
+  var pack = buildPack(question, ctx);
+  // Tier 0 goes up first, always, before any network attempt. Everything after
+  // this point is an improvement on an answer the officer can already read.
+  var offline = composeOffline(pack);
+  renderAnswer(pack, offline, state.corpus ? null
+    : 'Corpus not loaded — answering without citations. Run ./build_corpus.py.');
+  state.lastAnswer = {pack: pack, answer: offline, at: new Date()};
+
+  var btn = document.getElementById('askBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Asking…'; }
+
+  askServer(pack).then(function(res){
+    if(res.unavailable){
+      renderAnswer(pack, offline, 'Local answer: ' + res.unavailable + '.');
+      return;
+    }
+    var bad = validateAnswer(res, pack);
+    if(bad){
+      // A rejected model answer is reported, not hidden. The officer is
+      // entitled to know the machine said something the tool would not stand
+      // behind, and the deterministic answer is already on screen.
+      console.warn('model answer withheld: ' + bad, res);
+      renderAnswer(pack, offline, 'Model answer withheld — ' + bad + '.');
+      return;
+    }
+    res.generator = 'model';
+    res.what = res.what_would_change_this;
+    renderAnswer(pack, res, null);
+    state.lastAnswer = {pack: pack, answer: res, at: new Date()};
+  }).then(function(){
+    state.asking = false;
+    if(btn){ btn.disabled = false; btn.textContent = 'Ask'; }
   });
 }
 
@@ -1185,9 +2461,7 @@ function renderList(){
     host.querySelectorAll('.item').forEach(function(el){
       el.onclick = function(){
         var f = fs[+el.dataset.i];
-        var g = f.geometry, pts = g.type==='Polygon'?g.coordinates[0]:g.coordinates[0][0];
-        var lon=0, lat=0; pts.forEach(function(p){lon+=p[0];lat+=p[1];});
-        map.flyTo({center:[lon/pts.length, lat/pts.length], zoom:17.2, duration:1800});
+        map.flyTo({center: centroidOf(f), zoom:17.2, duration:1800});
         if(state.mode==='timeline'){ stop(); state.t=1; slider.value=100; update(); }
         selectBuilding(f);
       };
@@ -1244,6 +2518,9 @@ ruleSel.innerHTML = Object.keys(RULESETS).map(function(k){
 ruleSel.value = state.rule;
 ruleSel.onchange = function(){
   state.rule = this.value;
+  // An answer reasoned under the rule the officer has just left is worse than
+  // no answer: it reads as current and cites a threshold no longer in force.
+  state.lastAnswer = null;
   // Re-decide the site already on screen rather than leaving a verdict that
   // was reached under a rule the officer has just changed.
   if(state.lastCheck) checkPlot(state.lastCheck.lngLat);
@@ -1312,10 +2589,9 @@ document.getElementById('csvBtn').onclick = function(){
     return b.properties.risk_score - a.properties.risk_score; });
   var lines = [cols.join(',')];
   fs.forEach(function(f,i){
-    var g = f.geometry, pts = g.type==='Polygon'?g.coordinates[0]:g.coordinates[0][0];
-    var lon=0, lat=0; pts.forEach(function(p){lon+=p[0];lat+=p[1];});
+    var ctr = centroidOf(f);
     var p = f.properties;
-    lines.push([i+1, (lat/pts.length).toFixed(6), (lon/pts.length).toFixed(6), p.verdict,
+    lines.push([i+1, ctr[1].toFixed(6), ctr[0].toFixed(6), p.verdict,
       (+p.risk_score).toFixed(2), (+p.lost_frac).toFixed(3), (+p.flow_frac).toFixed(3),
       (+p.upstream_km2).toFixed(3), (+p.hand_m).toFixed(2),
       Math.round(p.area_in_meters), (+p.confidence).toFixed(2)].join(','));

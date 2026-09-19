@@ -369,16 +369,102 @@ var lastWaterCode = ee.ImageCollection('JRC/GSW1_4/YearlyHistory').map(function(
            .toUint8().rename('y');
 }).max().unmask(0).toUint8();
 
+// Every band here must sit on ONE grid before export. Mixing scales - JRC at
+// 30 m beside MERIT at 90 m - makes Earth Engine resample the combined mask
+// and write the FRACTION into the alpha channel. That is not merely a bad
+// validity flag: a browser stores canvas pixels premultiplied by alpha and
+// un-premultiplies them on getImageData, so at alpha 17 a stored value of 6
+// round-trips to 0 and at alpha 166 a year code of 38 comes back as 39, one
+// year past the end of the archive. PIL reads the file correctly, so the
+// corruption appears only in the browser and only on some pixels. Reprojecting
+// to a single grid keeps the mask binary and the bytes exact.
 var history = lastWaterCode.rename('r')
   .addBands(gsw.select('occurrence').unmask(0).round().toUint8().rename('g'))
   .addBands(hand.unmask(255).min(255).round().toUint8().rename('b'))
+  .unmask(0)
+  .reproject(OUTPROJ)
   .clip(AOI);
 
 // min and max are mandatory. Without them visualize auto-stretches each band,
 // the image still looks plausible, and every decoded number is wrong.
 var BYTES = {bands:['r','g','b'], min:0, max:255};
+
+// A measurement layer must not carry an alpha channel at all.
+//
+// visualize() derives alpha from the image mask, and for the history
+// composite that mask follows the water footprint, so every pixel that ever
+// held water came back at alpha 17, 27, 166 - never 255. That is fatal rather
+// than untidy: a browser stores canvas pixels premultiplied by alpha and
+// un-premultiplies them on getImageData, so a stored occurrence of 6 under
+// alpha 17 returns 0, and a year code of 38 under alpha 166 returns 39 - one
+// year past the end of the archive. PIL reads the file correctly, so the
+// corruption is invisible to every check that opens the file directly, and
+// appears only in the browser, only on the pixels that matter.
+//
+// forceRgbOutput emits three bands and no alpha, which makes the whole class
+// of bug unreachable. Masked ground renders as 0 instead of transparent; the
+// study-area test lives on the buffers layer, which keeps its alpha, so
+// nothing depends on transparency here.
+var BYTES_RGB = {bands:['r','g','b'], min:0, max:255, forceRgbOutput:true};
 print('PNG buffers:', buffers.visualize(BYTES).getThumbURL(THUMB));
-print('PNG history:', history.visualize(BYTES).getThumbURL(THUMB));
+print('PNG history:', history.visualize(BYTES_RGB).getThumbURL(THUMB));
+
+// ---------------------------------------------------------------------------
+// 13. HYDROLOGY
+// ---------------------------------------------------------------------------
+// The downstream question - "who pays if this is built on?" - needs to know how
+// much land drains THROUGH a point. upa is already used to score buildings in
+// section 8, but only inside Earth Engine: no raster carried it to the client,
+// so a clicked plot could be told it displaces 30 m3 of runoff and not that it
+// straddles a channel delivering several square kilometres of catchment.
+//
+// R = upstream drainage area, km2, LOG-PACKED
+// G = metres to the nearest trunk channel
+// B = metres above the lowest ground in the study area
+//
+// upa spans four orders of magnitude across one catchment. Packed linearly,
+// the trunk channel would occupy the top of the byte and every tributary would
+// collapse into the first few codes. Log packing holds the relative resolution
+// roughly constant across the whole range instead, at about 2.7% per code.
+//
+//   encode:  round(255 * log10(1 + upa) / log10(1001))     ceiling 1000 km2
+//   decode:  10^(R/255 * log10(1001)) - 1
+//
+// This is the ONE layer the client does not read as a straight byte, so the
+// decode law is printed on the screening certificate rather than left in here.
+var UPA_CEIL = 1000;                                 // km2, the packing ceiling
+var UPA_DEN = Math.log(1 + UPA_CEIL) / Math.LN10;    // log10(1001)
+
+var upaCode = upstreamArea.min(UPA_CEIL).add(1).log10()
+  .divide(UPA_DEN).multiply(255)
+  .min(255).round().toUint8().rename('r');
+
+// A trunk channel is one draining more than 10 km2. Distance to it answers
+// "how far is the main drain", which is the question a downstream argument
+// turns on - unlike distance to ANY flow path, which is never far in a
+// catchment this dense. Unclipped for the same reason flowPathRaw is.
+var trunkRaw = upstreamArea.gt(10);
+
+// Height above the AOI minimum, not above sea level. An absolute elevation
+// would spend most of the byte on the ~900 m Deccan plateau datum and leave a
+// handful of codes for the 60 m of local relief that actually decides which
+// way water runs between two plots.
+var elv = merit.select('elv');
+var elvMin = ee.Number(elv.reduceRegion({
+  reducer: ee.Reducer.min(), geometry: AOI, scale: SCALE,
+  bestEffort: true, maxPixels: 1e9
+}).values().get(0));
+
+var hydro = upaCode
+  .addBands(distanceMetres(trunkRaw).rename('g'))
+  .addBands(elv.subtract(elvMin).max(0).min(255).round().toUint8().rename('b'))
+  .unmask(0)         // before clip, as with buffers: a decoded hole must not
+  .reproject(OUTPROJ)  // one grid, so alpha stays binary - see section 12
+  .clip(AOI);        // read as a real measurement
+
+print('PNG hydro:', hydro.visualize(BYTES_RGB).getThumbURL(THUMB));
+print('upa packing ceiling, km2:', UPA_CEIL);
+print('elevation datum, m above WGS84 ellipsoid:', elvMin);
 
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.

@@ -37,6 +37,7 @@ def check(ok, msg):
 
 buf = load('buffers')
 hist = load('history', required=False)
+hyd = load('hydro', required=False)
 present, historic, flowpath = load('present'), load('historic'), load('flowpath')
 
 print(f"\nbuffers.png {buf.shape[1]}x{buf.shape[0]}"
@@ -49,13 +50,37 @@ print(f"\nbuffers.png {buf.shape[1]}x{buf.shape[0]}"
 # plausible. Check it before anything else.
 ref_shape = historic.shape[:2]
 for nm, im in [('buffers', buf), ('present', present), ('flowpath', flowpath)] + \
-              ([('history', hist)] if hist is not None else []):
+              ([('history', hist)] if hist is not None else []) + \
+              ([('hydro', hyd)] if hyd is not None else []):
     check(im.shape[:2] == ref_shape,
           f'{nm} is {im.shape[1]}x{im.shape[0]}, historic is {ref_shape[1]}x{ref_shape[0]}')
 if fails:
     print('\nGeometry mismatch - layers are on different grids. Fix the export '
           'before trusting anything below.')
     sys.exit(1)
+
+# Alpha must be binary on a measurement layer. A browser stores canvas pixels
+# premultiplied by alpha and un-premultiplies them on getImageData, so any
+# fractional alpha quantisation-damages every channel under it: at alpha 17 a
+# stored 6 returns 0. PIL does not premultiply, so this corruption is invisible
+# to every check that reads the file directly - including the rest of this
+# script. It has to be tested for explicitly.
+# A thin rind of antialiased pixels along the clip boundary is unavoidable and
+# harmless, because the sampler's alpha floor discards them anyway. A layer
+# whose interior carries fractional alpha is a different thing entirely.
+for nm, im in [('buffers', buf)] \
+              + ([('history', hist)] if hist is not None else []) \
+              + ([('hydro', hyd)] if hyd is not None else []):
+    a = im[..., 3]
+    fr = (a > 0) & (a < 255)
+    share = float(fr.mean())
+    levels = np.unique(a[fr])
+    check(share < 0.01,
+          f'{nm} alpha is effectively binary '
+          f'({100*share:.2f}% fractional, {levels.size} levels)'
+          + ('' if share < 0.01 else
+             f' e.g. {list(levels[:5])} - canvas premultiplication will corrupt '
+             f'every channel under these pixels in the browser'))
 
 inside = buf[..., 3] == 255          # alpha 255 marks the study area
 print(f'study area covers {100 * inside.mean():.1f}% of the frame\n')
@@ -124,6 +149,59 @@ else:
     if on.any():
         med = float(np.median(hist[..., 1][on]))
         check(med > 20, f'median occurrence inside the 1984-99 mask is {med:.0f}%')
+
+# hydro.png is the one layer not read as a straight byte: its red channel is a
+# log packing of upstream drainage area. A scaling law is a second thing that
+# can be wrong, so it gets its own cross-check against the flow-path mask that
+# was built from the same band by a different code path.
+if hyd is None:
+    print('\n  hydro layer absent - skipping upstream-area checks')
+else:
+    UPA_CEIL = 1000
+    den = np.log10(1 + UPA_CEIL)
+
+    def decode_upa(code):
+        return 10 ** (code / 255.0 * den) - 1
+
+    print()
+    r = hyd[..., 0][inside]
+    check(len(np.unique(r)) > 30,
+          f'R  upstream area: {len(np.unique(r))} distinct codes, '
+          f'{decode_upa(r.min()):.2f}-{decode_upa(r.max()):.0f} km2')
+
+    # flowPath is upa > 2 km2 AND low ground, so every flow-path pixel must
+    # decode above that threshold. The two were computed from the same band in
+    # different sections; if the packing is wrong they stop agreeing.
+    on_flow = (flowpath[..., 3] > 128) & inside
+    if on_flow.any():
+        upa = decode_upa(hyd[..., 0][on_flow].astype(float))
+        frac = float((upa > 2).mean())
+        # The mask is defined on MERIT's 90 m grid while upstream area is
+        # exported on the 30 m grid, so the mask's edge pixels straddle cells
+        # whose resampled area falls under the 2 km2 threshold. Agreement in
+        # the high eighties is the expected consequence of that mismatch, not
+        # a decoding fault.
+        check(frac > 0.85,
+              f'flow-path pixels decode above 2 km2: {100*frac:.1f}% '
+              f'(median {np.median(upa):.1f} km2)')
+    else:
+        check(False, 'flow-path mask is empty, cannot cross-check upstream area')
+
+    # A trunk channel is upa > 10 km2, and distance to it must be zero there.
+    trunk = decode_upa(hyd[..., 0].astype(float)) > 10
+    trunk_in = trunk & inside
+    if trunk_in.any():
+        g = hyd[..., 1][trunk_in]
+        frac = float((g <= 10).mean())
+        check(frac > 0.95,
+              f'trunk-channel pixels read <= 10 m to a trunk channel: '
+              f'{100*frac:.1f}% (median {np.median(g):.0f} m)')
+    else:
+        check(False, 'no pixel decodes above 10 km2 - the packing looks collapsed')
+
+    check(hyd[..., 2][inside].min() == 0,
+          f'B  elevation above the study-area minimum starts at '
+          f'{hyd[..., 2][inside].min()} (must be 0 somewhere)')
 
 print()
 if fails:
