@@ -81,8 +81,21 @@ for ch, mask, name in [(0, present, 'present water'),
         continue
     d = buf[..., ch][on]
     frac = float((d <= 10).mean())
-    check(frac > 0.95, f'{name}: {100*frac:.1f}% of mask pixels read <= 10 m '
-                       f'(median {np.median(d):.0f} m)')
+    ok = frac > 0.95
+    check(ok, f'{name}: {100*frac:.1f}% of mask pixels read <= 10 m '
+              f'(median {np.median(d):.0f} m)')
+    if not ok:
+        # A mirrored or rotated export keeps every value and every count
+        # intact, so only a positional test can see it. Naming the specific
+        # transform turns a mystifying failure into a one-line fix.
+        zero = buf[..., ch] == 0
+        for label, cand in [('flipped vertically', np.flipud(zero)),
+                            ('flipped horizontally', np.fliplr(zero)),
+                            ('rotated 180', np.flipud(np.fliplr(zero)))]:
+            hit = float((on & cand).sum()) / max(1, on.sum())
+            if hit > 0.9:
+                print(f'          ^ the layer appears to be {label}: '
+                      f'{100*hit:.0f}% of mask pixels match after that transform')
 
 # 3. Distance has to grow with distance.
 on = (historic[..., 3] > 128) & inside

@@ -301,13 +301,23 @@ var DT_PX = 48;                                          // 480 m search radius
 
 // The distance transform has to run in a metric projection or "pixels" are
 // not a length. But leaving the result in UTM gives the image a fixed metric
-// projection, and getThumbURL then renders in UTM: 2048x1232 instead of the
+// projection and getThumbURL then renders in UTM: 2048x1232 rather than the
 // 2048x1195 every other layer exports at, on a different grid. The client maps
 // lon/lat linearly across the raster, so that silently reads every distance
-// from the wrong ground. Transform in UTM, then come back to 4326 so the
-// geometry matches the rest of the stack. Nearest-neighbour resampling keeps
-// the byte codes exact through both hops.
-var OUTPROJ = ee.Projection('EPSG:4326').atScale(10);
+// from the wrong ground.
+//
+// Coming back via ee.Projection('EPSG:4326').atScale(10) is NOT the fix: a
+// freshly constructed EPSG:4326 carries an identity transform whose y axis
+// increases northward, opposite to raster row order, and the export lands
+// vertically mirrored. Values and pixel counts stay perfect, so nothing looks
+// wrong; the field is simply upside down.
+//
+// Borrowing the projection from the JRC image the masks are rendered from
+// makes the output grid identical to theirs by construction, which is exactly
+// what the cross-consistency check in verify_encoding.py tests. The 30 m
+// quantum this costs is immaterial next to the 30 m source resolution that
+// already dominates the error budget.
+var OUTPROJ = gsw.select('transition').projection();
 
 function distanceMetres(mask){
   return mask.unmask(0).reproject(DTPROJ)
