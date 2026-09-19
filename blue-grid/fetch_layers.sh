@@ -21,16 +21,23 @@ while IFS= read -r line; do
   # Layer name is the word just before the colon, e.g. "PNG rgb2005: https://..."
   name=$(printf '%s' "$line" | sed -E 's/[[:space:]]*:[[:space:]]*https.*$//' | awk '{print $NF}')
   [ -z "$name" ] && continue
-  if curl -sSfL -o "$DEST/$name.png" "$url"; then
-    if file "$DEST/$name.png" | grep -q 'PNG image'; then
-      printf '  ok    %-12s %s\n' "$name" "$(du -h "$DEST/$name.png" | cut -f1)"
-      ok=$((ok+1))
-    else
-      printf '  BAD   %-12s not a PNG (URL expired?)\n' "$name"
-      rm -f "$DEST/$name.png"; fail=$((fail+1))
-    fi
+  # Staged through a part file, because the normal way to use this script is
+  # to re-run it after ONE new layer was added, with every other URL in the
+  # list long expired. Downloading straight onto the destination meant a 404
+  # truncated a layer that was already on disk and correct: the fetch reported
+  # a failure and silently destroyed the evidence at the same time.
+  part="$DEST/.$name.png.part"
+  if curl -sSfL -o "$part" "$url" && file "$part" | grep -q 'PNG image'; then
+    mv -f "$part" "$DEST/$name.png"
+    printf '  ok    %-12s %s\n' "$name" "$(du -h "$DEST/$name.png" | cut -f1)"
+    ok=$((ok+1))
   else
-    printf '  FAIL  %-12s download error\n' "$name"
+    rm -f "$part"
+    if [ -f "$DEST/$name.png" ]; then
+      printf '  skip  %-12s URL expired; kept the copy already on disk\n' "$name"
+    else
+      printf '  FAIL  %-12s download failed and nothing on disk\n' "$name"
+    fi
     fail=$((fail+1))
   fi
 done < "$SRC"
