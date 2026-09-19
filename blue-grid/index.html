@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanished Blue Grid</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<style>
+:root{
+  --ink:#05070c; --panel:rgba(9,13,22,.82); --panel-solid:#0a0f19;
+  --line:rgba(140,170,220,.16); --line-hot:rgba(140,170,220,.34);
+  --text:#e9f0fa; --dim:#7d8ea8; --faint:#4d5b70;
+  --water-old:#2f81f7; --water-now:#6cb6ff; --red:#ff5b52; --amber:#f0b429;
+  --violet:#a371f7; --green:#3fb950;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ink);color:var(--text);font-family:var(--sans);
+  font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased}
+#map{position:absolute;inset:0}
+.maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(5,7,12,.7)!important}
+.maplibregl-ctrl-attrib a{color:var(--faint)!important}
+
+/* ---------- shell ---------- */
+.glass{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);
+  box-shadow:0 18px 60px rgba(0,0,0,.55)}
+#top{position:absolute;top:0;left:0;right:0;height:58px;z-index:20;display:flex;
+  align-items:center;gap:20px;padding:0 18px;
+  background:linear-gradient(180deg,rgba(5,7,12,.96),rgba(5,7,12,0));pointer-events:none}
+#top>*{pointer-events:auto;flex:none}
+@media (max-width:1180px){ .tabs button{padding:8px 10px;font-size:11px}
+  #city{max-width:190px} .brand i{display:none} }
+@media (max-width:980px){ #csvBtn{display:none} }
+.brand{display:flex;align-items:baseline;gap:9px;flex:none}
+.brand b{font-size:15px;font-weight:800;letter-spacing:-.02em}
+.brand i{font-style:normal;font-size:9px;letter-spacing:.22em;color:var(--red);
+  font-family:var(--mono);border:1px solid rgba(255,91,82,.4);padding:2px 6px;border-radius:4px}
+
+select{background:var(--panel-solid);color:var(--text);border:1px solid var(--line);
+  border-radius:9px;padding:7px 11px;font-size:12px;font-family:var(--sans);
+  font-weight:600;cursor:pointer;outline:none}
+
+.tabs{display:flex;gap:2px;background:rgba(9,13,22,.8);border:1px solid var(--line);
+  border-radius:10px;padding:3px;margin-left:auto}
+.tabs button{background:none;border:none;color:var(--dim);font:600 11.5px/1 var(--sans);
+  letter-spacing:.04em;padding:8px 14px;border-radius:7px;cursor:pointer;
+  transition:color .18s, background .18s}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{background:rgba(47,129,247,.18);color:#cfe3ff;
+  box-shadow:inset 0 0 0 1px rgba(47,129,247,.4)}
+
+.ghost{background:rgba(9,13,22,.8);border:1px solid var(--line);color:var(--dim);
+  border-radius:10px;padding:8px 13px;font:600 11.5px/1 var(--sans);cursor:pointer;
+  transition:color .18s,border-color .18s}
+.ghost:hover{color:var(--text);border-color:var(--line-hot)}
+
+/* ---------- rails ---------- */
+#left{position:absolute;left:16px;top:70px;width:302px;z-index:15;
+  max-height:calc(100vh - 210px);display:flex;flex-direction:column}
+#right{position:absolute;right:16px;top:70px;width:306px;z-index:15;
+  max-height:calc(100vh - 210px);overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+#left::-webkit-scrollbar,#right::-webkit-scrollbar,.scroll::-webkit-scrollbar{width:5px}
+#right::-webkit-scrollbar-thumb,.scroll::-webkit-scrollbar-thumb{background:var(--line-hot);border-radius:3px}
+
+.card{padding:15px 16px}
+.card h3{font-size:9.5px;letter-spacing:.2em;color:var(--faint);font-weight:700;
+  text-transform:uppercase;margin-bottom:12px;font-family:var(--mono)}
+
+/* ---------- stats ---------- */
+.metric{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:7px 0;border-bottom:1px solid rgba(140,170,220,.07)}
+.metric:last-child{border-bottom:none}
+.metric .k{font-size:11.5px;color:var(--dim)}
+.metric .v{font-family:var(--mono);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.metric.big .v{font-size:23px;font-weight:700;letter-spacing:-.02em}
+.v.red{color:var(--red)} .v.blue{color:var(--water-now)} .v.violet{color:var(--violet)}
+
+.bar{height:5px;border-radius:3px;background:rgba(47,129,247,.14);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--red),#ff8f6b);
+  border-radius:3px;transition:width 1.1s cubic-bezier(.22,1,.36,1)}
+
+/* ---------- priority list ---------- */
+.scroll{overflow-y:auto}
+.item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;
+  cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
+.item:hover{background:rgba(47,129,247,.09);border-color:rgba(47,129,247,.28)}
+.item .rank{font-family:var(--mono);font-size:10px;color:var(--faint);width:18px;flex:none}
+.item .body{flex:1;min-width:0}
+.item .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .sub{font-size:10.5px;color:var(--faint);font-family:var(--mono)}
+.item .sc{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--red)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+
+/* ---------- verdict ---------- */
+#verdict{display:none;animation:slam .42s cubic-bezier(.16,1,.3,1)}
+@keyframes slam{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+.vbadge{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:11px;
+  font-weight:800;font-size:12.5px;letter-spacing:.02em;margin-bottom:13px}
+.vbadge.red{background:rgba(255,91,82,.15);color:#ff8880;box-shadow:inset 0 0 0 1px rgba(255,91,82,.4)}
+.vbadge.amber{background:rgba(240,180,41,.13);color:#f3c65c;box-shadow:inset 0 0 0 1px rgba(240,180,41,.36)}
+.vbadge.green{background:rgba(63,185,80,.13);color:#63d478;box-shadow:inset 0 0 0 1px rgba(63,185,80,.36)}
+.vbadge.blue{background:rgba(108,182,255,.13);color:#8ac8ff;box-shadow:inset 0 0 0 1px rgba(108,182,255,.36)}
+.vbadge .ic{font-size:17px;line-height:1}
+#brief{margin-top:13px;padding:13px;background:rgba(140,170,220,.06);border-radius:10px;
+  border-left:2px solid var(--red);font-size:11.5px;line-height:1.65;white-space:pre-wrap;
+  color:#c3d2e6;display:none;max-height:230px;overflow-y:auto}
+.act{width:100%;margin-top:11px;padding:10px;background:rgba(47,129,247,.16);
+  border:1px solid rgba(47,129,247,.4);color:#cfe3ff;border-radius:10px;
+  font:700 11.5px/1 var(--sans);cursor:pointer;transition:background .16s}
+.act:hover{background:rgba(47,129,247,.28)}
+
+/* ---------- timeline ---------- */
+#timeline{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:18;
+  transition:transform .45s cubic-bezier(.16,1,.3,1),opacity .35s;
+  width:min(680px,calc(100vw - 680px));min-width:420px;padding:14px 20px 16px}
+.trow{display:flex;align-items:center;gap:16px}
+#play{width:42px;height:42px;flex:none;border-radius:50%;border:1px solid rgba(47,129,247,.45);
+  background:rgba(47,129,247,.16);color:#cfe3ff;font-size:15px;cursor:pointer;
+  display:grid;place-items:center;transition:transform .16s,background .16s}
+#play:hover{background:rgba(47,129,247,.3);transform:scale(1.07)}
+.tcore{flex:1;min-width:0}
+.thead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+#year{font-family:var(--mono);font-size:27px;font-weight:700;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;line-height:1}
+#caption{font-size:11.5px;color:var(--dim);text-align:right;max-width:330px}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;
+  background:linear-gradient(90deg,var(--water-old),var(--red));outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
+  border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.16);cursor:grab}
+.ticks{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);
+  font-size:9.5px;color:var(--faint)}
+
+/* ---------- legend ---------- */
+#timeline.hid{transform:translateX(-50%) translateY(150%);opacity:0;pointer-events:none}
+#legend{position:absolute;left:16px;bottom:18px;z-index:15;padding:12px 14px;
+  transition:transform .45s cubic-bezier(.16,1,.3,1)}
+#legend.low{transform:translateY(0)}
+#legend .key{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;color:#b9c8dc}
+.sw{width:11px;height:11px;border-radius:3px;flex:none}
+
+/* ---------- modal ---------- */
+#modal{position:absolute;inset:0;z-index:40;background:rgba(3,5,9,.8);
+  backdrop-filter:blur(8px);display:none;place-items:center;padding:40px}
+#modal.on{display:grid}
+.sheet{width:min(720px,100%);max-height:80vh;overflow-y:auto;padding:26px 28px}
+.sheet h2{font-size:18px;font-weight:800;letter-spacing:-.02em;margin-bottom:5px}
+.sheet .lede{font-size:12.5px;color:var(--dim);margin-bottom:20px;line-height:1.6}
+.case{padding:13px 0;border-top:1px solid var(--line)}
+.case .t{font-size:12.5px;font-weight:700;margin-bottom:4px}
+.case .d{font-size:11.5px;color:var(--dim);line-height:1.6}
+.case .n{font-family:var(--mono);color:var(--amber);font-weight:700}
+.sheet a{color:var(--water-now);text-decoration:none;font-size:10.5px}
+.sheet a:hover{text-decoration:underline}
+#modalClose{position:absolute;top:22px;right:26px;background:none;border:none;
+  color:var(--dim);font-size:26px;cursor:pointer;line-height:1}
+
+/* ---------- misc ---------- */
+#toast{position:absolute;bottom:18px;right:16px;max-width:330px;z-index:30;
+  padding:10px 34px 10px 14px;font-size:11px;line-height:1.5;color:var(--amber);
+  display:none;border-color:rgba(240,180,41,.4);cursor:pointer}
+#toast::after{content:'\00d7';position:absolute;top:8px;right:12px;font-size:15px;color:var(--faint)}
+#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:14;
+  padding:16px 22px;text-align:center;display:none;pointer-events:none}
+#hint b{display:block;font-size:14px;margin-bottom:4px}
+#hint span{font-size:11.5px;color:var(--dim)}
+#map.aim .maplibregl-canvas{cursor:crosshair}
+.pulse{width:14px;height:14px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 0 0 rgba(255,91,82,.7);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 16px rgba(255,91,82,0)}100%{box-shadow:0 0 0 0 rgba(255,91,82,0)}}
+#boot{position:absolute;inset:0;z-index:60;background:var(--ink);display:grid;place-items:center;
+  transition:opacity .7s;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.2em}
+#boot.gone{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<header id="top">
+  <div class="brand"><b>VANISHED BLUE GRID</b><i>FORENSIC</i></div>
+  <select id="city"></select>
+  <div class="tabs" id="modes">
+    <button data-mode="timeline" class="on">Timeline</button>
+    <button data-mode="approval">Plot check</button>
+    <button data-mode="impact">Downstream</button>
+  </div>
+  <button class="ghost" id="validateBtn">Validation</button>
+  <button class="ghost" id="csvBtn">Export CSV</button>
+</header>
+
+<aside id="left">
+  <div class="glass card" style="display:flex;flex-direction:column;min-height:0">
+    <h3 id="leftTitle">Priority sites</h3>
+    <div class="scroll" id="list" style="margin:-4px -6px"></div>
+  </div>
+</aside>
+
+<aside id="right">
+  <div class="glass card" id="statsCard">
+    <h3 id="statsTitle">Catchment ledger</h3>
+    <div id="stats"></div>
+    <div class="bar"><i id="lossBar" style="width:0"></i></div>
+  </div>
+  <div class="glass card" id="verdict"></div>
+</aside>
+
+<div class="glass" id="legend"></div>
+<div class="glass" id="toast"></div>
+<div class="glass" id="hint"></div>
+
+<footer class="glass" id="timeline">
+  <div class="trow">
+    <button id="play">&#9654;</button>
+    <div class="tcore">
+      <div class="thead">
+        <div id="year">2005</div>
+        <div id="caption">The blue grid as the satellite record found it.</div>
+      </div>
+      <input type="range" id="slider" min="0" max="100" value="0">
+      <div class="ticks"><span>2005</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+    </div>
+  </div>
+</footer>
+
+<div id="modal"><div class="glass sheet" id="sheet"></div><button id="modalClose">&times;</button></div>
+<div id="boot">READING THE SATELLITE RECORD</div>
+
+<script>
+'use strict';
+
+// ===========================================================================
+// CONFIG
+// ===========================================================================
+// bounds are [west, south, east, north] and MUST match the AOI rectangle used
+// by gee_blue_grid.js for that city, or every overlay is pinned to the wrong
+// ground and the tool quietly lies.
+var CITIES = {
+  bengaluru: {
+    label: 'Bengaluru', sub: 'Bellandur & Varthur catchment',
+    bounds: [77.63, 12.90, 77.75, 12.97],
+    zones: 'Bommanahalli & Mahadevapura',
+    hotspots: [
+      {name:'HSR Layout / Parangipalya', lon:77.6403, lat:12.9114, px:244},
+      {name:'Kasavanahalli',             lon:77.6759, lat:12.9324, px:138},
+      {name:'Haralur',                   lon:77.6459, lat:12.9236, px:112},
+      {name:'Panathur',                  lon:77.7078, lat:12.9324, px:71}
+    ]
+  },
+  chennai: {
+    label: 'Chennai', sub: 'Pallikaranai marsh',
+    bounds: [80.180, 12.900, 80.280, 12.985],
+    zones: 'Perungudi & Sholinganallur',
+    hotspots: []
+  }
+};
+
+// Raster layers, painted bottom to top.
+var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','encroached'];
+var BLANK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+var state = {
+  city: 'bengaluru', mode: 'timeline', t: 0, playing: false,
+  stats: null, buildings: null, samplers: {}, have: {}, marker: null, selected: null, ready: false
+};
+
+// ===========================================================================
+// MAP
+// ===========================================================================
+var C = CITIES[state.city];
+var map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {
+      // Esri World Imagery sits underneath as a safety net: if a true-colour
+      // export is missing the map still shows ground rather than a void.
+      sat: { type:'raster', tileSize:256,
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        attribution:'Esri, Maxar · JRC Global Surface Water · MERIT Hydro · Google Open Buildings' }
+    },
+    layers: [{id:'sat', type:'raster', source:'sat'}]
+  },
+  bounds: [[C.bounds[0],C.bounds[1]],[C.bounds[2],C.bounds[3]]],
+  fitBoundsOptions: {padding: pad()},
+  attributionControl: {compact:true}
+});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-right');
+
+function corners(b){ return [[b[0],b[3]],[b[2],b[3]],[b[2],b[1]],[b[0],b[1]]]; }
+
+// The side rails are fixed width, so reserving room for them as a constant
+// squeezes the map to a sliver on a narrow window. Scale the reservation with
+// the viewport instead. Declared, not assigned, so hoisting covers the call in
+// the map constructor above.
+// A ring round the world with the study area punched out of it. Everything
+// analysed is clipped to the AOI, so without this the imagery just stops at a
+// hard rectangle and reads as a rendering fault. Dimming the outside instead
+// makes the boundary look like what it is: the edge of the evidence.
+function maskGeo(b){
+  return {type:'Feature', geometry:{type:'Polygon', coordinates:[
+    [[-179.9,-85],[179.9,-85],[179.9,85],[-179.9,85],[-179.9,-85]],
+    [[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]],[b[0],b[1]]]
+  ]}};
+}
+function aoiGeo(b){
+  return {type:'Feature', geometry:{type:'LineString', coordinates:
+    [[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]],[b[0],b[1]]]}};
+}
+
+function pad(){
+  var w = window.innerWidth;
+  var side = w > 1280 ? 340 : w > 1000 ? 210 : 40;
+  return {top:80, bottom: w > 1000 ? 140 : 110, left:side, right:side};
+}
+
+map.on('load', function(){
+  map.addSource('mask', {type:'geojson', data: maskGeo(C.bounds)});
+  map.addLayer({id:'mask', type:'fill', source:'mask',
+    paint:{'fill-color':'#04060b','fill-opacity':0.55}});
+
+  LAYERS.forEach(function(id){
+    map.addSource(id, {type:'image', url:BLANK, coordinates:corners(C.bounds)});
+    map.addLayer({id:id, type:'raster', source:id,
+      paint:{'raster-opacity':0, 'raster-fade-duration':0}});
+  });
+
+  map.addSource('buildings', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'b-fill', type:'fill', source:'buildings', paint:{
+    'fill-color':['case',
+      ['==',['get','verdict'],'RED_FORMER_WATER_BODY'],'#ff5b52',
+      ['==',['get','verdict'],'RED_BLOCKS_DRAINAGE'],'#f0b429','#8b949e'],
+    'fill-opacity':0}});
+  map.addLayer({id:'b-line', type:'line', source:'buildings',
+    paint:{'line-color':'#fff','line-width':1.1,'line-opacity':0}});
+
+  map.addSource('aoi', {type:'geojson', data: aoiGeo(C.bounds)});
+  map.addLayer({id:'aoi-line', type:'line', source:'aoi', paint:{
+    'line-color':'#6cb6ff','line-width':1,'line-opacity':0.35,'line-dasharray':[3,3]}});
+
+  map.on('click','b-fill', function(e){ e.preventDefault(); selectBuilding(e.features[0]); });
+  map.on('mouseenter','b-fill', function(){ if(state.mode!=='approval') map.getCanvas().style.cursor='pointer'; });
+  map.on('mouseleave','b-fill', function(){ map.getCanvas().style.cursor=''; });
+  map.on('click', function(e){ if(state.mode==='approval' && !e.defaultPrevented) checkPlot(e.lngLat); });
+
+  loadCity(state.city).then(function(){
+    document.getElementById('boot').classList.add('gone');
+  });
+});
+
+// ===========================================================================
+// DATA LOADING
+// ===========================================================================
+function exists(url){
+  return fetch(url,{method:'HEAD'}).then(function(r){return r.ok;}).catch(function(){return false;});
+}
+
+// Reads a PNG into an offscreen canvas so any point can be tested against it
+// without a server. This is what makes the plot check instant and offline:
+// the same rasters that are drawn on the map are also the lookup table.
+//
+// Sampling happens at a quarter of the export resolution. The underlying data
+// is 30m and the probe covers a whole plot, so full resolution buys nothing
+// and costs four times the decode and memory. Downscaling keeps smoothing on
+// deliberately: it area-averages, so a thin feature survives as partial alpha
+// rather than being dropped by nearest-neighbour.
+var SAMPLE_MAX_W = 1024;
+var PROBE_METRES = 35;
+
+function makeSampler(url, b){
+  return new Promise(function(res){
+    var img = new Image();
+    img.onload = function(){
+      var sc = Math.min(1, SAMPLE_MAX_W / img.naturalWidth);
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth*sc));
+      c.height = Math.max(1, Math.round(img.naturalHeight*sc));
+      var ctx = c.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      try {
+        var midLat = (b[1]+b[3])/2;
+        var metresWide = (b[2]-b[0]) * 111320 * Math.cos(midLat*Math.PI/180);
+        res({w:c.width, h:c.height, mpp: metresWide/c.width,
+             d:ctx.getImageData(0,0,c.width,c.height).data});
+      } catch(err){ res(null); }
+    };
+    img.onerror = function(){ res(null); };
+    img.src = url;
+  });
+}
+
+// A plot is far larger than one pixel, so the check probes a disc about a
+// plot wide rather than a single point.
+function sample(s, lon, lat, b){
+  if(!s) return 0;
+  var x = Math.round((lon-b[0])/(b[2]-b[0]) * s.w);
+  var y = Math.round((b[3]-lat)/(b[3]-b[1]) * s.h);
+  var R = Math.max(1, Math.round(PROBE_METRES / s.mpp)), best = 0;
+  for(var dy=-R; dy<=R; dy++) for(var dx=-R; dx<=R; dx++){
+    if(dx*dx+dy*dy > R*R) continue;
+    var px = x+dx, py = y+dy;
+    if(px<0||py<0||px>=s.w||py>=s.h) continue;
+    var a = s.d[(py*s.w+px)*4+3];
+    if(a>best) best = a;
+  }
+  return best/255;
+}
+
+function loadCity(key){
+  state.city = key;
+  var c = CITIES[key];
+  state.samplers = {}; state.have = {}; state.selected = null; state.ready = false;
+  document.getElementById('verdict').style.display='none';
+  if(state.marker){ state.marker.remove(); state.marker=null; }
+
+  // Painting the map must not wait on the plot-check lookup tables. Decoding
+  // five full-size PNGs into canvases takes seconds, and a demo cannot open on
+  // a black screen. The map goes up first; the samplers hydrate behind it and
+  // are ready long before anyone reaches the plot-check tab.
+  var SAMPLED = ['historic','present','encroached','flowpath','floodprone'];
+
+  if(map.getSource('mask')) map.getSource('mask').setData(maskGeo(c.bounds));
+  if(map.getSource('aoi')) map.getSource('aoi').setData(aoiGeo(c.bounds));
+
+  var jobs = LAYERS.map(function(id){
+    var url = 'data/'+key+'/'+id+'.png';
+    return exists(url).then(function(ok){
+      state.have[id] = ok;
+      map.getSource(id).updateImage({url: ok?url:BLANK, coordinates:corners(c.bounds)});
+    });
+  });
+
+  // Sequential, so five large decodes never contend for the main thread at once.
+  Promise.all(jobs).then(function(){
+    return SAMPLED.reduce(function(chain, id){
+      return chain.then(function(){
+        if(!state.have[id]) return;
+        return makeSampler('data/'+key+'/'+id+'.png', c.bounds)
+          .then(function(sm){ state.samplers[id] = sm; });
+      });
+    }, Promise.resolve());
+  }).then(function(){ state.ready = true; });
+
+  jobs.push(
+    fetch('data/'+key+'/stats.json').then(function(r){return r.ok?r.json():null;})
+      .catch(function(){return null;}).then(function(j){ state.stats = j; })
+  );
+  jobs.push(
+    fetch('data/'+key+'/flagged_buildings.geojson').then(function(r){return r.ok?r.json():null;})
+      .catch(function(){return null;}).then(function(g){
+        state.buildings = g;
+        map.getSource('buildings').setData(g || {type:'FeatureCollection',features:[]});
+      })
+  );
+
+  return Promise.all(jobs).then(function(){
+    map.fitBounds([[c.bounds[0],c.bounds[1]],[c.bounds[2],c.bounds[3]]],
+      {padding: pad(), duration:900});
+    renderStats(); renderList(); renderLegend(); applyMode(); update();
+    var missing = LAYERS.filter(function(l){return !state.have[l];});
+    if(missing.length) toast('Missing layers: '+missing.join(', ')+' — run gee_blue_grid.js for '+c.label+', then ./fetch_layers.sh '+key);
+    else if(!state.buildings) toast('No flagged_buildings.geojson yet — run the Earth Engine export task.');
+    else hideToast();
+  });
+}
+
+// ===========================================================================
+// TIMELINE
+// ===========================================================================
+function ramp(t,a,b){ return Math.max(0, Math.min(1, (t-a)/(b-a))); }
+
+function update(){
+  var t = state.t;
+  document.getElementById('year').textContent = Math.round(2005 + t*20);
+  document.getElementById('caption').textContent =
+    t<.12 ? 'The blue grid as the satellite record found it.' :
+    t<.45 ? 'Water retreats. The edges go first.' :
+    t<.78 ? 'Construction reaches the lakebed.' :
+            'What was built on the water, in red.';
+
+  if(!map.getLayer('rgb2005')) return;
+  var m = state.mode, bo;
+
+  // Each mode answers a different question, so each gets its own layer mix.
+  // Reusing the timeline's t outside the timeline would leave a plot check
+  // being made against 2005 imagery, which is exactly the wrong ground.
+  if(m === 'timeline'){
+    // rgb2005 holds steady underneath while rgb2025 fades in on top, so the
+    // crossfade never exposes the modern basemap mid-drag.
+    set('rgb2005', state.have.rgb2005 ? 1 : 0);
+    set('rgb2025', state.have.rgb2025 ? ramp(t,.05,.95) : 0);
+    // The old shoreline never vanishes completely. It settles to a ghost so
+    // the viewer keeps seeing where the water used to reach.
+    set('historic',   .88 - .62*t);
+    set('present',    .88*ramp(t,.10,.70));
+    set('encroached', .95*ramp(t,.50,1));
+    set('floodprone', 0);
+    set('flowpath',   0);
+    bo = .72*ramp(t,.70,1);
+  } else if(m === 'approval'){
+    // Every constraint visible at once on today's ground: this is the view an
+    // approving officer needs, not a story about the past.
+    set('rgb2005', 0);
+    set('rgb2025', state.have.rgb2025 ? 1 : 0);
+    set('historic', .46); set('present', .62); set('encroached', .95);
+    set('floodprone', .28); set('flowpath', .55);
+    bo = .38;
+  } else {
+    set('rgb2005', 0);
+    set('rgb2025', state.have.rgb2025 ? 1 : 0);
+    set('historic', .22); set('present', .55); set('encroached', .95);
+    set('floodprone', .48); set('flowpath', .80);
+    bo = .55;
+  }
+  if(map.getLayer('b-fill')){
+    map.setPaintProperty('b-fill','fill-opacity',bo);
+    map.setPaintProperty('b-line','line-opacity',bo*1.2);
+  }
+  function set(id,v){ if(map.getLayer(id)) map.setPaintProperty(id,'raster-opacity',v); }
+}
+
+var slider = document.getElementById('slider');
+slider.addEventListener('input', function(){ stop(); state.t = slider.value/100; update(); });
+
+var raf = null;
+function stop(){ state.playing=false; if(raf) cancelAnimationFrame(raf); raf=null;
+  document.getElementById('play').innerHTML='&#9654;'; }
+document.getElementById('play').onclick = function(){
+  if(state.playing){ stop(); return; }
+  if(state.mode!=='timeline') setMode('timeline');
+  state.playing = true; this.innerHTML='&#10073;&#10073;';
+  if(state.t >= .999) state.t = 0;
+  var t0 = performance.now(), from = state.t, dur = 9000*(1-from);
+  (function step(now){
+    if(!state.playing) return;
+    var p = Math.min(1, (now-t0)/dur);
+    state.t = from + (1-from)*p;
+    slider.value = state.t*100; update();
+    if(p<1) raf = requestAnimationFrame(step); else stop();
+  })(t0);
+};
+
+// ===========================================================================
+// MODES
+// ===========================================================================
+function setMode(m){
+  state.mode = m;
+  document.querySelectorAll('#modes button').forEach(function(b){
+    b.classList.toggle('on', b.dataset.mode===m);
+  });
+  applyMode();
+}
+function applyMode(){
+  var m = state.mode;
+  document.getElementById('map').classList.toggle('aim', m==='approval');
+  document.getElementById('timeline').classList.toggle('hid', m!=='timeline');
+
+  var hint = document.getElementById('hint');
+  if(m==='approval'){
+    hint.innerHTML = '<b>Click any plot on the map</b><span>The same rasters drawn here are read back pixel by pixel — no server, no lookup.</span>';
+    hint.style.display='block'; setTimeout(function(){hint.style.display='none';}, 4200);
+  } else hint.style.display='none';
+
+  if(m!=='timeline'){ stop(); state.t = 1; slider.value = 100; }
+  renderStats(); renderLegend(); update();
+}
+document.querySelectorAll('#modes button').forEach(function(b){
+  b.onclick = function(){ setMode(b.dataset.mode); };
+});
+
+// ===========================================================================
+// PLOT CHECK  — the approval-stage product, running entirely client side
+// ===========================================================================
+function checkPlot(lngLat){
+  var b = CITIES[state.city].bounds, S = state.samplers;
+  if(!Object.keys(S).length){ toast('Still reading the layers — try again in a moment.'); return; }
+  var v = {
+    encroached: sample(S.encroached, lngLat.lng, lngLat.lat, b),
+    historic:   sample(S.historic,   lngLat.lng, lngLat.lat, b),
+    present:    sample(S.present,    lngLat.lng, lngLat.lat, b),
+    flow:       sample(S.flowpath,   lngLat.lng, lngLat.lat, b),
+    flood:      sample(S.floodprone, lngLat.lng, lngLat.lat, b)
+  };
+
+  var r;
+  if(v.present > .15 && v.historic > .15)
+    r = {c:'blue', ic:'◆', t:'ACTIVE WATER BODY', s:'This is open water today. Construction is prohibited outright.'};
+  else if(v.encroached > .1)
+    r = {c:'red', ic:'✕', t:'REJECT — BUILT ON FORMER WATER', s:'Recorded as surface water before 2000, no longer water, and already under construction.'};
+  else if(v.historic > .15 && v.present <= .15)
+    r = {c:'red', ic:'✕', t:'REJECT — FORMER WATER BODY', s:'The satellite record classifies this plot as surface water before 2000. Building here removes storage the catchment still needs.'};
+  else if(v.flow > .1)
+    r = {c:'red', ic:'✕', t:'REJECT — NATURAL DRAINAGE PATH', s:'Terrain analysis places this plot on a channel that carries upstream runoff. Building here chokes the flow.'};
+  else if(v.flood > .1)
+    r = {c:'amber', ic:'⚠', t:'CONDITIONS REQUIRED — LOW GROUND', s:'Not former water, but low-lying land that receives displaced runoff. Requires on-site retention before approval.'};
+  else
+    r = {c:'green', ic:'✓', t:'CLEAR', s:'No historical water, drainage path or low ground detected at this plot.'};
+
+  if(state.marker) state.marker.remove();
+  var el = document.createElement('div'); el.className='pulse';
+  if(r.c==='green') el.style.background='#3fb950';
+  else if(r.c==='amber') el.style.background='#f0b429';
+  else if(r.c==='blue') el.style.background='#6cb6ff';
+  state.marker = new maplibregl.Marker({element:el}).setLngLat(lngLat).addTo(map);
+
+  state.selected = null;
+  var rows = [
+    ['Coordinates', lngLat.lat.toFixed(5)+', '+lngLat.lng.toFixed(5)],
+    ['Was water pre-2000', pct(v.historic)],
+    ['Is water today', pct(v.present)],
+    ['On drainage path', pct(v.flow)],
+    ['On low ground', pct(v.flood)]
+  ];
+  showVerdict(r, rows, null);
+}
+function pct(x){ return x>.5 ? 'yes' : x>.1 ? 'partial' : 'no'; }
+
+function selectBuilding(f){
+  var p = f.properties;
+  state.selected = p;
+  var red = p.verdict && p.verdict.indexOf('RED')===0;
+  var r = p.verdict==='RED_FORMER_WATER_BODY'
+      ? {c:'red', ic:'✕', t:'BUILT ON FORMER WATER BODY', s:'Footprint overlaps land classified as surface water before 2000.'}
+    : p.verdict==='RED_BLOCKS_DRAINAGE'
+      ? {c:'amber', ic:'⚠', t:'BLOCKS A NATURAL DRAINAGE PATH', s:'Footprint sits on a terrain channel carrying upstream runoff.'}
+      : {c:'amber', ic:'⚠', t:'PARTIAL OVERLAP', s:'Part of the footprint falls on former water or a drainage path.'};
+  var rows = [
+    ['Risk score', (+p.risk_score).toFixed(1)],
+    ['Footprint on former water', Math.round(p.lost_frac*100)+'%'],
+    ['Footprint in flow path', Math.round(p.flow_frac*100)+'%'],
+    ['Upstream catchment', (+p.upstream_km2).toFixed(2)+' km²'],
+    ['Height above drainage', (+p.hand_m).toFixed(1)+' m'],
+    ['Building area', Math.round(p.area_in_meters)+' m²'],
+    ['Footprint confidence', Math.round(p.confidence*100)+'%']
+  ];
+  showVerdict(r, rows, p);
+}
+
+function showVerdict(r, rows, p){
+  var el = document.getElementById('verdict');
+  el.innerHTML =
+    '<div class="vbadge '+r.c+'"><span class="ic">'+r.ic+'</span><span>'+r.t+'</span></div>' +
+    '<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:12px">'+r.s+'</div>' +
+    rows.map(function(x){
+      return '<div class="metric"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span></div>';
+    }).join('') +
+    (p ? '<button class="act" id="briefBtn">Generate evidence brief</button><div id="brief"></div>' : '');
+  // A verdict is the answer to the question just asked, so it goes to the top
+  // of the rail and the rail scrolls to it. On a short window it would
+  // otherwise render below the fold, which loses the whole point.
+  var rail = document.getElementById('right');
+  rail.insertBefore(el, rail.firstChild);
+  el.style.display='block';
+  el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+  rail.scrollTop = 0;
+  if(p) document.getElementById('briefBtn').onclick = function(){ writeBrief(p); };
+}
+
+// Composed locally from the same fields already on screen, so the demo never
+// depends on a network call or an API key. The inputs are structured, so
+// swapping in a Claude API call here is a drop-in change.
+function writeBrief(p){
+  var c = CITIES[state.city];
+  var txt =
+'ENCROACHMENT NOTE — machine generated\n'+
+'Area: '+c.label+' — '+c.sub+'\n\n'+
+'A structure of approximately '+Math.round(p.area_in_meters)+' m² occupies land that the '+
+'Landsat record classified as surface water in the 1984–1999 epoch and that the 2000–2021 '+
+'epoch no longer shows as water.\n\n'+
+'About '+Math.round(p.lost_frac*100)+'% of the footprint lies on former water. Terrain '+
+'analysis places it '+(+p.hand_m).toFixed(1)+' m above the nearest natural drainage line, '+
+'with '+(+p.upstream_km2).toFixed(2)+' km² of catchment draining through this point.\n\n'+
+'Rainfall that this catchment previously discharged into the water body must now find '+
+'another route, and is discharged onto downstream land instead.\n\n'+
+'Sources: JRC Global Surface Water v1.4 (transition band); Google Open Buildings v3 '+
+'(footprint confidence '+Math.round(p.confidence*100)+'%); MERIT Hydro v1.0.1; '+
+'Dynamic World V1.\n'+
+'Derived from public satellite data. Requires ground verification before enforcement action.';
+  var el = document.getElementById('brief');
+  el.textContent = txt; el.style.display='block';
+}
+
+// ===========================================================================
+// PANELS
+// ===========================================================================
+// Counts a figure up, but never at the cost of the figure being right.
+// requestAnimationFrame is paused while the page is hidden, so a tab switch
+// mid-animation would otherwise leave the ledger frozen part-way and reading
+// a number that is simply false. A timer guarantees the final value lands
+// whatever happens to the frame loop.
+function animateTo(el, target, suffix, decimals){
+  var t0=null, from=0, dur=900, done=false;
+  function finish(){
+    if(done) return;
+    done = true;
+    el.textContent = target.toFixed(decimals)+suffix;
+  }
+  function step(now){
+    if(done) return;
+    if(!t0) t0=now;
+    var p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3);
+    if(p>=1){ finish(); return; }
+    el.textContent = (from+(target-from)*e).toFixed(decimals)+suffix;
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+  setTimeout(finish, dur+200);
+  document.addEventListener('visibilitychange', finish, {once:true});
+}
+
+function renderStats(){
+  var s = state.stats, c = CITIES[state.city], host = document.getElementById('stats');
+  document.getElementById('statsTitle').textContent =
+    state.mode==='impact' ? 'Who pays downstream' : 'Catchment ledger';
+
+  if(!s){ host.innerHTML = '<div class="metric"><span class="k">No stats.json for '+c.label+'</span></div>'; return; }
+
+  var lossPct = s.historic_ha ? (s.historic_ha - s.present_ha)/s.historic_ha*100 : 0;
+  var rows;
+  if(state.mode==='impact'){
+    rows = [
+      ['Flood-prone low ground', s.floodprone_ha, ' ha', 1, 'violet', false],
+      ['Buildings on low ground', s.buildings_in_floodprone, '', 0, 'violet', true],
+      ['Storage lost upstream', s.lost_ha, ' ha', 1, 'red', false],
+      ['Built on former water', s.encroached_ha, ' ha', 2, 'red', false]
+    ];
+  } else {
+    rows = [
+      ['Water, 1984–99', s.historic_ha, ' ha', 1, 'blue', false],
+      ['Water, 2000–21', s.present_ha, ' ha', 1, 'blue', false],
+      ['Lost', s.lost_ha, ' ha', 1, 'red', false],
+      ['Blue grid gone', lossPct, '%', 0, 'red', true]
+    ];
+  }
+  host.innerHTML = rows.map(function(r,i){
+    return '<div class="metric'+(r[5]?' big':'')+'"><span class="k">'+r[0]+
+      '</span><span class="v '+r[4]+'" id="m'+i+'">'+(r[1]==null?'—':'')+'</span></div>';
+  }).join('');
+  rows.forEach(function(r,i){
+    if(r[1]!=null) animateTo(document.getElementById('m'+i), r[1], r[2], r[3]);
+  });
+  document.getElementById('lossBar').style.width = Math.min(100,lossPct)+'%';
+}
+
+function renderList(){
+  var host = document.getElementById('list'), c = CITIES[state.city];
+  var title = document.getElementById('leftTitle');
+
+  if(state.buildings && state.buildings.features.length){
+    var fs = state.buildings.features.slice().sort(function(a,b){
+      return b.properties.risk_score - a.properties.risk_score; }).slice(0,40);
+    title.textContent = 'Ranked offenders · '+state.buildings.features.length+' flagged';
+    host.innerHTML = fs.map(function(f,i){
+      var p = f.properties;
+      var col = p.verdict==='RED_FORMER_WATER_BODY' ? '#ff5b52'
+              : p.verdict==='RED_BLOCKS_DRAINAGE' ? '#f0b429' : '#8b949e';
+      return '<div class="item" data-i="'+i+'">'+
+        '<span class="rank">'+(i+1)+'</span>'+
+        '<span class="dot" style="background:'+col+'"></span>'+
+        '<span class="body"><span class="nm">'+Math.round(p.area_in_meters)+' m² structure</span>'+
+        '<span class="sub">'+(+p.upstream_km2).toFixed(2)+' km² upstream · '+(+p.hand_m).toFixed(1)+' m above drain</span></span>'+
+        '<span class="sc">'+(+p.risk_score).toFixed(0)+'</span></div>';
+    }).join('');
+    host.querySelectorAll('.item').forEach(function(el){
+      el.onclick = function(){
+        var f = fs[+el.dataset.i];
+        var g = f.geometry, pts = g.type==='Polygon'?g.coordinates[0]:g.coordinates[0][0];
+        var lon=0, lat=0; pts.forEach(function(p){lon+=p[0];lat+=p[1];});
+        map.flyTo({center:[lon/pts.length, lat/pts.length], zoom:17.2, duration:1800});
+        if(state.mode==='timeline'){ stop(); state.t=1; slider.value=100; update(); }
+        selectBuilding(f);
+      };
+    });
+  } else {
+    title.textContent = 'Priority sites';
+    host.innerHTML = c.hotspots.length
+      ? c.hotspots.map(function(h,i){
+          return '<div class="item" data-i="'+i+'">'+
+            '<span class="rank">'+(i+1)+'</span><span class="dot" style="background:#ff5b52"></span>'+
+            '<span class="body"><span class="nm">'+h.name+'</span>'+
+            '<span class="sub">'+h.lat.toFixed(4)+', '+h.lon.toFixed(4)+'</span></span>'+
+            '<span class="sc">'+h.px+'</span></div>';
+        }).join('')
+      : '<div style="padding:10px;font-size:11.5px;color:var(--faint)">No hotspots computed for this city yet.</div>';
+    host.querySelectorAll('.item').forEach(function(el){
+      el.onclick = function(){
+        var h = c.hotspots[+el.dataset.i];
+        stop(); state.t=1; slider.value=100; update();
+        map.flyTo({center:[h.lon,h.lat], zoom:16.4, duration:2000});
+      };
+    });
+  }
+}
+
+function renderLegend(){
+  var m = state.mode;
+  var keys = m==='impact'
+    ? [['#a371f7','Flood-prone low ground'],['#f0b429','Natural drainage path'],
+       ['#ff5b52','Built on former water'],['#6cb6ff','Water today']]
+    : m==='approval'
+    ? [['#2f81f7','Was water pre-2000'],['#6cb6ff','Water today'],
+       ['#ff5b52','Built on former water'],['#f0b429','Drainage path'],
+       ['#a371f7','Low ground']]
+    : [['#2f81f7','Water, 1984–99'],['#6cb6ff','Water today'],
+       ['#ff5b52','Built on former water'],['#f0b429','Blocks a drainage path']];
+  document.getElementById('legend').innerHTML = keys.map(function(k){
+    return '<div class="key"><span class="sw" style="background:'+k[0]+'"></span>'+k[1]+'</div>';
+  }).join('');
+}
+
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
+  t.onclick=function(){ t.style.display='none'; }; }
+function hideToast(){ document.getElementById('toast').style.display='none'; }
+
+// ===========================================================================
+// CITY SWITCH, VALIDATION, EXPORT
+// ===========================================================================
+var citySel = document.getElementById('city');
+citySel.innerHTML = Object.keys(CITIES).map(function(k){
+  return '<option value="'+k+'">'+CITIES[k].label+' — '+CITIES[k].sub+'</option>';
+}).join('');
+citySel.onchange = function(){ document.getElementById('boot').classList.remove('gone');
+  loadCity(this.value).then(function(){ document.getElementById('boot').classList.add('gone'); }); };
+
+// Independently recorded encroachment figures. The tool is not calibrated
+// against these — they come from municipal surveys and court filings — which
+// is what makes agreement between them worth anything.
+var CASES = [
+  ['Mahadevapura zone leads the city',
+   'A BBMP survey recorded <span class="n">523</span> stormwater-drain encroachments in Mahadevapura, more than any other zone. Kasavanahalli, Panathur and Varthur all sit inside it — three of the four sites this tool ranks highest.',
+   'https://www.deccanherald.com/india/karnataka/bengaluru/new-bbmp-survey-finds-1-134-stormwater-drain-encroachments-3026196'],
+  ['Bommanahalli, fourth in the city',
+   '<span class="n">204</span> recorded drain encroachments. HSR Layout falls in this zone — the densest encroachment cluster this tool found.',
+   'https://www.deccanherald.com/india/karnataka/bengaluru/new-bbmp-survey-finds-1-134-stormwater-drain-encroachments-3026196'],
+  ['City-wide backlog',
+   'The same survey added <span class="n">1,134</span> new drain encroachments to a standing list of <span class="n">1,963</span> still awaiting removal — the queue this ranking is meant to order.',
+   'https://www.deccanherald.com/india/karnataka/bengaluru/new-bbmp-survey-finds-1-134-stormwater-drain-encroachments-3026196'],
+  ['Lake land, and how little comes back',
+   'BBMP identified <span class="n">472 acres</span> of encroached lake land and has reclaimed <span class="n">17.38 acres</span> of it. Enforcement is the bottleneck, not detection — which is the case for ranking by downstream harm.',
+   'https://www.constructionworld.in/urban-infrastructure/wastewater-and-sewage-treatment/bengaluru-lakes-encroached-bbmp-reveals-extent/67209'],
+  ['The scale across the district',
+   'Bengaluru Urban and Rural hold <span class="n">1,547</span> lakes between them, with <span class="n">10,785 acres</span> of lake land recorded as encroached.',
+   'https://www.constructionworld.in/urban-infrastructure/wastewater-and-sewage-treatment/bengaluru-lakes-encroached-bbmp-reveals-extent/67209']
+];
+
+document.getElementById('validateBtn').onclick = function(){
+  document.getElementById('sheet').innerHTML =
+    '<h2>Does this agree with the record?</h2>'+
+    '<div class="lede">This tool reads satellites and terrain. It has never seen a municipal survey. '+
+    'Where its output lines up with independently recorded encroachment, that agreement was not engineered — '+
+    'which is the only reason it counts as corroboration.</div>'+
+    CASES.map(function(c){
+      return '<div class="case"><div class="t">'+c[0]+'</div><div class="d">'+c[1]+
+        '<br><a href="'+c[2]+'" target="_blank" rel="noopener">source &#8599;</a></div></div>';
+    }).join('')+
+    '<div class="case"><div class="t" style="color:var(--dim)">Known limits</div><div class="d">'+
+    'JRC surface water is 30&thinsp;m, so tanks under roughly half a hectare are invisible. '+
+    'MERIT Hydro is 90&thinsp;m, so it resolves catchment-scale drainage but not individual rajakaluves. '+
+    'Every flag is a lead for ground verification, not a finding of fact.</div></div>';
+  document.getElementById('modal').classList.add('on');
+};
+document.getElementById('modalClose').onclick = function(){ document.getElementById('modal').classList.remove('on'); };
+document.getElementById('modal').onclick = function(e){ if(e.target===this) this.classList.remove('on'); };
+
+// The artifact a municipal engineer would actually open.
+document.getElementById('csvBtn').onclick = function(){
+  if(!state.buildings || !state.buildings.features.length){
+    toast('Nothing to export yet — run the Earth Engine export task first.'); return;
+  }
+  var cols = ['rank','lat','lon','verdict','risk_score','lost_frac','flow_frac',
+              'upstream_km2','hand_m','area_in_meters','confidence'];
+  var fs = state.buildings.features.slice().sort(function(a,b){
+    return b.properties.risk_score - a.properties.risk_score; });
+  var lines = [cols.join(',')];
+  fs.forEach(function(f,i){
+    var g = f.geometry, pts = g.type==='Polygon'?g.coordinates[0]:g.coordinates[0][0];
+    var lon=0, lat=0; pts.forEach(function(p){lon+=p[0];lat+=p[1];});
+    var p = f.properties;
+    lines.push([i+1, (lat/pts.length).toFixed(6), (lon/pts.length).toFixed(6), p.verdict,
+      (+p.risk_score).toFixed(2), (+p.lost_frac).toFixed(3), (+p.flow_frac).toFixed(3),
+      (+p.upstream_km2).toFixed(3), (+p.hand_m).toFixed(2),
+      Math.round(p.area_in_meters), (+p.confidence).toFixed(2)].join(','));
+  });
+  var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'blue_grid_'+state.city+'_ranked.csv';
+  a.click();
+};
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape') document.getElementById('modal').classList.remove('on');
+  if(e.key===' '){ e.preventDefault(); document.getElementById('play').click(); }
+});
+</script>
+</body>
+</html>
