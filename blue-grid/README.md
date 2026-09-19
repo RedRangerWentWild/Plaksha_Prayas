@@ -306,6 +306,32 @@ describe policy mechanisms whose sources have not been read, and a panel that
 looked equally confident about all of them would be claiming more than the
 corpus does.
 
+### When the panel does not appear
+
+`recharge-structure` fires on *a requirement exists*, so it applies to every
+plot in the study area. It is a real supplement and never a finding, and the
+panel is suppressed when it is the only thing that fired.
+
+That matters more than it sounds. Measured over twelve sites, seven came back
+with no recorded objection and were still being handed a "requirement" of the
+same thirty cubic metres and one option available anywhere — a demand the
+screening had found no basis for, phrased as though it had, identically every
+time. The panel now hangs on whether a **site-specific** option fired, and
+shows on six of those twelve.
+
+The gate is on the ground, not on the verdict. A plot on low ground that
+screened as NO RECORDED OBJECTION still gets the sunken park, because the
+alternative exists for the terrain the plot sits on rather than for the ruling
+the screening reached.
+
+### The volume is not a measurement of the site
+
+It is plot area × design storm × the change in runoff coefficient, so it is the
+same figure for any plot of that frontage anywhere in the study area — 30 m³ at
+a 30 m frontage on a lakebed and on high ground a kilometre away alike. The
+panel says so in as many words. What is specific to a location is **which uses
+can hold it**, and that is what the list below the figure is for.
+
 ---
 
 ## The interface

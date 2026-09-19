@@ -2564,26 +2564,50 @@ function optionsFor(rec){
 // restoring a bed the plot is demonstrably sitting on. Rank orders them by how
 // much of the problem the use actually addresses: putting the water back,
 // then holding it, then building around it, then recharging what is left.
+//
+// `universal` marks an option whose trigger is "a requirement exists", so it
+// fires on every plot inside the study area. It is a real supplement and never
+// a finding: a panel whose entire content is an option available anywhere has
+// told the officer nothing about THIS plot, and repeating it on every click is
+// how a tool trains people to stop reading it.
 var OPTION_META = {
   'option.wetland-restoration-tdr': {rank: 1, why: 'the plot is on the 1984\u201399 bed'},
   'option.sponge-park-retention':   {rank: 2, why: 'the ground here is low'},
   'option.build-around-channel':    {rank: 3, why: 'a drainage line runs through the plot'},
-  'option.recharge-structure':      {rank: 4, why: 'available on any site'}
+  'option.recharge-structure':      {rank: 4, why: 'available on any site', universal: true}
 };
+
+// Did anything fire that is actually about this plot? The retention panel hangs
+// on this rather than on the verdict, because the alternatives exist for the
+// ground the plot sits on, not for the ruling the screening reached. A plot on
+// low ground is worth a sunken park whether or not the buffer test cleared it.
+function siteSpecificOptions(opts){
+  return opts.filter(function(o){ return !(OPTION_META[o.c.id] || {}).universal; });
+}
 
 function renderRetention(ctx){
   var el = document.getElementById('retention');
-  if(!ctx || !ctx.rec.inAoi || ctx.rec.retentionRequiredM3 === null){
-    el.classList.remove('on'); el.innerHTML = ''; return;
-  }
-  var r = ctx.rec;
+  var off = function(){ el.classList.remove('on'); el.innerHTML = ''; };
+  if(!ctx || !ctx.rec.inAoi || ctx.rec.retentionRequiredM3 === null) return off();
+
+  var r = ctx.rec, opts = optionsFor(r);
+  // Nothing fired that is about this plot. Seven sites in twelve came back with
+  // no recorded objection and were still being handed a "requirement" of the
+  // same thirty cubic metres and one option available anywhere — a demand the
+  // screening had found no basis for, phrased as though it had. The honest
+  // output there is no panel.
+  if(!siteSpecificOptions(opts).length) return off();
   function row(k, v, cls){
     return '<div class="metric"><span class="k">' + k + '</span>'
          + '<span class="v' + (cls ? ' ' + cls : '') + '">' + v + '</span></div>';
   }
 
   var rows = row('Displaced per design storm', r.runoffDisplacedM3 + ' m\u00b3')
-    + row('To send nothing extra downhill, hold', r.retentionRequiredM3 + ' m\u00b3');
+    + row('To send nothing extra downhill, hold', r.retentionRequiredM3 + ' m\u00b3')
+    + '<div class="rnote">This volume follows from the assumed plot size and the '
+    + 'design storm. It is the same for any plot of this frontage anywhere in the '
+    + 'study area, and is not a measurement of this location \u2014 what is '
+    + 'specific to here is which uses below can hold it.</div>';
 
   if(r.rwhRequiredM3 === null){
     rows += row('Already required by rule', '\u2014')
@@ -2598,7 +2622,6 @@ function renderRetention(ctx){
           + 'a rule this tool read. Confirm it against the notification in force.</div>';
   }
 
-  var opts = optionsFor(r);
   var list = opts.length
     ? '<div class="phead" style="border-top:1px solid var(--line)">'
       + '<span class="lbl">What can discharge this</span></div>'
@@ -3040,8 +3063,10 @@ function renderCertificate(ck, snap){
              ? '\u2014' : ck.ctx.rec.retentionShortfallM3 + ' m\u00b3'],
           ['Uses that can discharge it', (function(){
              var o = optionsFor(ck.ctx.rec);
-             return o.length ? o.map(function(x){ return x.c.title; }).join('; ')
-                             : '\u2014'; })()]
+             return siteSpecificOptions(o).length
+                  ? o.map(function(x){ return x.c.title; }).join('; ')
+                  : 'none specific to this site; the volume is held by ordinary '
+                    + 'on-plot recharge'; })()]
         ]
         : [['Retention', 'not available \u2014 outside the study area']]) +
       '<p class="cnote">The retention figure is the displaced volume, read as a '
@@ -3629,6 +3654,13 @@ function buildPack(question, ctx){
     // measurement of its own, so it rides on the pack and not in FACTS —
     // nothing in the narrative should ever substitute it as a number.
     route_ended_by: ctx.route ? ctx.route.endedBy : null,
+    // Which option chunks the SITE fired, as distinct from which ones the
+    // wording of the question happened to retrieve. The lexical lane ignores
+    // triggers by design, so "what else could go here" pulls option chunks in
+    // on any plot — and gating the narrative on the pack's contents therefore
+    // asserted a requirement on exactly the sites the panel had decided not to
+    // make one for. The two must agree, so both read this.
+    site_options: optionsFor(ctx.rec).map(function(o){ return o.c.id; }),
     facts: facts,
     params: packParams(),
     chunks: got.chunks,
@@ -3800,7 +3832,9 @@ function composeOffline(pack){
   // go here" routes to feasibility, and that is precisely the question this
   // answers, so gating it on the consequence branch left the one intent that
   // asked for it with nothing.
-  if(pack.intent !== 'evidence' && has('fact.retentionRequiredM3')){
+  var firedOpts = siteSpecificOptions(
+    (pack.site_options || []).map(function(id){ return {c: {id: id}}; }));
+  if(pack.intent !== 'evidence' && has('fact.retentionRequiredM3') && firedOpts.length){
     {
       parts.push('Holding ' + t('fact.retentionRequiredM3') + ' on the site would '
         + 'send nothing extra downhill, which is the displaced volume read as an '
@@ -3816,13 +3850,11 @@ function composeOffline(pack){
     }
     // Named, not recommended. The chunks carry what each one is and what it
     // costs; this says only that the list is a list.
-    var optIds = pack.chunks.filter(function(c){ return c.kind === 'option'; });
-    if(optIds.length)
-      parts.push('The sources below name '
-        + (optIds.length === 1 ? 'one use' : 'uses')
-        + ' that can hold that volume on a site like this one. Which of them '
-        + 'applies is the sanctioning authority\u2019s decision and not this '
-        + 'tool\u2019s.');
+    // Counted from what fired here, not from what the pack happens to hold.
+    parts.push('The sources below name '
+      + (firedOpts.length === 1 ? 'a use' : 'uses')
+      + ' that can hold that volume on ground like this. Which of them applies '
+      + 'is the sanctioning authority\u2019s decision and not this tool\u2019s.');
   }
 
   if(pack.intent === 'feasibility'){
