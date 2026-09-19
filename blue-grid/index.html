@@ -299,6 +299,15 @@ select:focus-visible{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-
   display:flex;flex-direction:column;gap:10px;overflow:visible}
 #rightScroll{display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:0;
   padding-right:3px;margin-right:-3px}
+/* A flex item shrinks by default, and every panel here sets overflow:hidden to
+   keep its corners rounded. Together those two mean that once the stack is
+   taller than the rail it COMPRESSES instead of scrolling — silently, with no
+   scrollbar and no clipped-text cue, because each panel crops its own content.
+   Adding the downstream panel pushed the stack over that line and squeezed the
+   verdict down to a three-pixel sliver of its own colour rule: the one thing on
+   this rail that has to be readable, rendered as a coloured hairline. Panels
+   keep their natural height; the rail scrolls. */
+#rightScroll > *{flex:0 0 auto}
 
 /* ---- screening parameters ----
    These two inputs change the verdict, so they belong against the verdict
