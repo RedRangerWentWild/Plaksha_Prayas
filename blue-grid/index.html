@@ -11,7 +11,7 @@
   --ink:#05070c; --panel:rgba(9,13,22,.82); --panel-solid:#0a0f19;
   --line:rgba(140,170,220,.16); --line-hot:rgba(140,170,220,.34);
   --text:#e9f0fa; --dim:#7d8ea8; --faint:#4d5b70;
-  --water-old:#2f81f7; --water-now:#6cb6ff; --red:#ff5b52; --amber:#f0b429;
+  --water-old:#1f6feb; --water-now:#58a6ff; --red:#ff5b52; --amber:#f0b429;
   --violet:#a371f7; --green:#3fb950;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
@@ -103,6 +103,7 @@ select{background:var(--panel-solid);color:var(--text);border:1px solid var(--li
 .vbadge.amber{background:rgba(240,180,41,.13);color:#f3c65c;box-shadow:inset 0 0 0 1px rgba(240,180,41,.36)}
 .vbadge.green{background:rgba(63,185,80,.13);color:#63d478;box-shadow:inset 0 0 0 1px rgba(63,185,80,.36)}
 .vbadge.blue{background:rgba(108,182,255,.13);color:#8ac8ff;box-shadow:inset 0 0 0 1px rgba(108,182,255,.36)}
+.vbadge.violet{background:rgba(163,113,247,.15);color:#c9a6ff;box-shadow:inset 0 0 0 1px rgba(163,113,247,.42)}
 .vbadge .ic{font-size:17px;line-height:1}
 #brief{margin-top:13px;padding:13px;background:rgba(140,170,220,.06);border-radius:10px;
   border-left:2px solid var(--red);font-size:11.5px;line-height:1.65;white-space:pre-wrap;
@@ -135,6 +136,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
 
 /* ---------- legend ---------- */
 #timeline.hid{transform:translateX(-50%) translateY(150%);opacity:0;pointer-events:none}
+#ruleBar{display:none;align-items:center;gap:8px;background:rgba(9,13,22,.8);
+  border:1px solid var(--line);border-radius:10px;padding:4px 10px 4px 4px}
+#ruleBar.on{display:flex}
+#ruleBar label{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:5px}
+#ruleBar input{width:52px;background:var(--panel-solid);color:var(--text);
+  border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:11px;
+  font-family:var(--mono);outline:none}
+
 #legend{position:absolute;left:16px;bottom:18px;z-index:15;padding:12px 14px;
   transition:transform .45s cubic-bezier(.16,1,.3,1)}
 #legend.low{transform:translateY(0)}
@@ -170,6 +179,57 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
 .pulse{width:14px;height:14px;border-radius:50%;background:var(--red);
   box-shadow:0 0 0 0 rgba(255,91,82,.7);animation:pulse 1.8s infinite}
 @keyframes pulse{70%{box-shadow:0 0 0 16px rgba(255,91,82,0)}100%{box-shadow:0 0 0 0 rgba(255,91,82,0)}}
+  /* ---- certificate ---- */
+  .cert h3{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);
+    font-family:var(--mono);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px}
+  .chead{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
+  .cref{text-align:right;flex:none;font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .cref b{display:block;font-size:12px;color:var(--text);margin-bottom:3px}
+  .cert-decision{margin:18px 0 10px;padding:14px 18px;border-radius:10px;font-weight:800;
+    font-size:17px;letter-spacing:.03em;border:1px solid}
+  .cert-decision.red{background:rgba(248,81,73,.14);color:#ff8880;border-color:rgba(248,81,73,.5)}
+  .cert-decision.violet{background:rgba(163,113,247,.14);color:#c9a6ff;border-color:rgba(163,113,247,.5)}
+  .cert-decision.amber{background:rgba(210,153,34,.13);color:#f3c65c;border-color:rgba(210,153,34,.5)}
+  .cert-decision.green{background:rgba(63,185,80,.13);color:#63d478;border-color:rgba(63,185,80,.5)}
+  .creason{margin:0 0 4px 18px;font-size:12px;line-height:1.7;color:#c3d2e6}
+  .creason li{margin-bottom:5px}
+  .crow{display:flex;justify-content:space-between;gap:20px;padding:5px 0;
+    border-bottom:1px solid rgba(140,170,220,.07);font-size:11.5px}
+  .crow span:first-child{color:var(--dim);flex:none;max-width:52%}
+  .crow span:last-child{text-align:right;font-family:var(--mono);font-size:11px}
+  .cfields{display:flex;gap:12px}
+  .cfields label{flex:1;font-size:10px;color:var(--faint);display:flex;flex-direction:column;gap:4px}
+  .cin{background:transparent;border:none;border-bottom:1px solid var(--line-hot);
+    color:var(--text);font-size:12px;padding:4px 2px;outline:none;font-family:var(--sans)}
+  .csnap{width:100%;border-radius:8px;border:1px solid var(--line);margin-top:4px}
+  .ccanon{font-family:var(--mono);font-size:9.5px;color:var(--dim);word-break:break-all;
+    background:rgba(140,170,220,.07);padding:9px 11px;border-radius:7px;line-height:1.6}
+  .cnote{font-size:11px;color:var(--dim);line-height:1.6;margin-top:8px}
+  .cbox{height:66px;border:1px solid var(--line-hot);border-radius:7px;margin-top:4px}
+  .ccheck{font-size:11.5px;color:var(--dim);margin-top:9px}
+  .csign{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-top:16px;
+    font-size:10px;color:var(--faint)}
+  .csign hr{border:none;border-top:1px solid var(--line-hot);margin-top:22px}
+  .cfoot{font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:20px;
+    border-top:1px solid var(--line);padding-top:12px}
+
+  /* Print the modal rather than generating a PDF: no library to load, no popup
+     for a blocker to eat, nothing that needs the network, and the document
+     stays on the projector while it prints. */
+  @media print{
+    html,body{background:#fff;color:#000;overflow:visible;height:auto}
+    #map,#top,#left,#right,#legend,#timeline,#toast,#hint,#boot,#modalClose,.noprint{display:none!important}
+    #modal{position:static;display:block!important;background:none;backdrop-filter:none;padding:0}
+    .sheet{width:100%;max-height:none;overflow:visible;border:none;box-shadow:none;
+      background:#fff;backdrop-filter:none;padding:0}
+    .cert *,.sheet *{color:#000!important}
+    .cert h3{color:#555!important;border-color:#bbb!important}
+    .crow{border-color:#ddd!important}
+    .cert-decision{border:2px solid #000!important;background:#fff!important}
+    .ccanon{background:#f4f4f4!important}
+    .cbox,.csign hr,.cin{border-color:#888!important}
+    .cfoot,.cnote{color:#444!important}
+  }
 #boot{position:absolute;inset:0;z-index:60;background:var(--ink);display:grid;place-items:center;
   transition:opacity .7s;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.2em}
 #boot.gone{opacity:0;pointer-events:none}
@@ -186,6 +246,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
     <button data-mode="timeline" class="on">Timeline</button>
     <button data-mode="approval">Plot check</button>
     <button data-mode="impact">Downstream</button>
+  </div>
+  <div id="ruleBar">
+    <select id="ruleSel" title="Which buffer regime to apply"></select>
+    <label>Plot <input id="plotM" type="number" min="5" max="300" step="5" value="30"> m</label>
   </div>
   <button class="ghost" id="validateBtn">Validation</button>
   <button class="ghost" id="csvBtn">Export CSV</button>
@@ -216,11 +280,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
     <button id="play">&#9654;</button>
     <div class="tcore">
       <div class="thead">
-        <div id="year">2005</div>
+        <div id="year">2003&ndash;07</div>
         <div id="caption">The blue grid as the satellite record found it.</div>
       </div>
       <input type="range" id="slider" min="0" max="100" value="0">
-      <div class="ticks"><span>2005</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ticks"><span>2003&ndash;07 &middot; Landsat 5</span><span>crossfade</span><span>Sentinel-2 &middot; 2023&ndash;25</span></div>
     </div>
   </div>
 </footer>
@@ -259,10 +323,47 @@ var CITIES = {
 
 // Raster layers, painted bottom to top.
 var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','encroached'];
+
+// Lookup tables, never drawn. These carry measurements rather than colour:
+// buffers packs three distances in metres into R/G/B, yearloss packs the last
+// year water was recorded. Drawing them would be meaningless; sampling them is
+// the whole point.
+var DATA_LAYERS = ['buffers','history'];
+// Exactly the palette gee_blue_grid.js renders the PNGs with. Changing a
+// colour here without changing it there makes the legend lie.
+var PALETTE = {
+  historic:'#1f6feb', present:'#58a6ff', encroached:'#f85149',
+  flowpath:'#d29922', floodprone:'#bc8cff'
+};
+
 var BLANK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+// Buffer distances are OPERATOR CONFIGURATION, not a legal determination by
+// this tool. Karnataka has more than one figure in play and an officer knows
+// which binds them, so the tool applies the rule it is told to and records
+// which one on the certificate.
+var RULESETS = {
+  state: {id:'state', label:'State revision \u2014 30 m lake buffer',
+          lakeM:30, drainM:25,
+          cite:'State revision of the NGT buffer, as applied by BBMP.'},
+  ngt:   {id:'ngt', label:'NGT / Supreme Court \u2014 75 m lake buffer',
+          lakeM:75, drainM:50,
+          cite:'NGT O.A. 222/2014 (Forward Foundation v. State of Karnataka), '
+             + 'upheld by the Supreme Court and applied prospectively.'}
+};
+
+// The error budget, stated once and used everywhere a distance is judged.
+//   JRC 30 m pixel, shoreline position   +/- 15 m
+//   distance-transform quantum at 10 m   +/-  7 m
+//   PNG georeferencing, one pixel        +/-  6 m
+//   thumbnail resample and byte decode         0  (nearest, exact)
+// In quadrature, about 20 m. It is dominated by the source resolution, not by
+// anything this tool does, which is why finer encoding would buy nothing.
+var UNCERTAINTY_M = 20;
 
 var state = {
   city: 'bengaluru', mode: 'timeline', t: 0, playing: false,
+  rule: 'state', plotM: 30, lastCheck: null,
   stats: null, buildings: null, samplers: {}, have: {}, marker: null, selected: null, ready: false
 };
 
@@ -285,6 +386,9 @@ var map = new maplibregl.Map({
   },
   bounds: [[C.bounds[0],C.bounds[1]],[C.bounds[2],C.bounds[3]]],
   fitBoundsOptions: {padding: pad()},
+  // Required for getCanvas().toDataURL() on the certificate. It cannot be
+  // enabled after construction, so it has to live here.
+  preserveDrawingBuffer: true,
   attributionControl: {compact:true}
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-right');
@@ -330,8 +434,8 @@ map.on('load', function(){
   map.addSource('buildings', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'b-fill', type:'fill', source:'buildings', paint:{
     'fill-color':['case',
-      ['==',['get','verdict'],'RED_FORMER_WATER_BODY'],'#ff5b52',
-      ['==',['get','verdict'],'RED_BLOCKS_DRAINAGE'],'#f0b429','#8b949e'],
+      ['==',['get','verdict'],'RED_FORMER_WATER_BODY'], PALETTE.encroached,
+      ['==',['get','verdict'],'RED_BLOCKS_DRAINAGE'], PALETTE.flowpath,'#8b949e'],
     'fill-opacity':0}});
   map.addLayer({id:'b-line', type:'line', source:'buildings',
     paint:{'line-color':'#fff','line-width':1.1,'line-opacity':0}});
@@ -369,15 +473,21 @@ function exists(url){
 var SAMPLE_MAX_W = 1024;
 var PROBE_METRES = 35;
 
-function makeSampler(url, b){
+function makeSampler(url, b, exact){
   return new Promise(function(res){
     var img = new Image();
     img.onload = function(){
-      var sc = Math.min(1, SAMPLE_MAX_W / img.naturalWidth);
+      // Masks tolerate downscaling: area-averaging a binary edge is a feature.
+      // Measurement layers are decoded 1:1 with smoothing off. Averaging two
+      // byte codes invents a distance or a year that never existed, and even
+      // nearest-neighbour dropping of every other pixel can miss the true
+      // minimum of a distance field, which is the number a buffer turns on.
+      var sc = exact ? 1 : Math.min(1, SAMPLE_MAX_W / img.naturalWidth);
       var c = document.createElement('canvas');
       c.width = Math.max(1, Math.round(img.naturalWidth*sc));
       c.height = Math.max(1, Math.round(img.naturalHeight*sc));
       var ctx = c.getContext('2d',{willReadFrequently:true});
+      if(exact) ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, 0, 0, c.width, c.height);
       try {
         var midLat = (b[1]+b[3])/2;
@@ -389,6 +499,29 @@ function makeSampler(url, b){
     img.onerror = function(){ res(null); };
     img.src = url;
   });
+}
+
+// Reduces a named channel over the same disc. For a distance field the
+// closest approach of the feature to the plot is what a buffer rule turns on,
+// so 'min' is the correct reduction; for the year layer 'max' gives the most
+// recent year any part of the plot held water.
+function sampleCh(s, lon, lat, b, ch, mode, radiusM){
+  if(!s) return null;
+  var x = Math.round((lon-b[0])/(b[2]-b[0]) * s.w);
+  var y = Math.round((b[3]-lat)/(b[3]-b[1]) * s.h);
+  var R = Math.max(0, Math.round((radiusM || PROBE_METRES) / s.mpp));
+  var lo = mode === 'min', best = null;
+  for(var dy=-R; dy<=R; dy++) for(var dx=-R; dx<=R; dx++){
+    if(dx*dx+dy*dy > R*R) continue;
+    var px = x+dx, py = y+dy;
+    if(px<0||py<0||px>=s.w||py>=s.h) continue;
+    var i = (py*s.w+px)*4;
+    if(s.d[i+3] !== 255) continue;     // outside the study area: no evidence
+    var v = s.d[i+ch];
+    if(best === null) best = v;
+    else if(lo ? v < best : v > best) best = v;
+  }
+  return best;
 }
 
 // A plot is far larger than one pixel, so the check probes a disc about a
@@ -419,7 +552,10 @@ function loadCity(key){
   // five full-size PNGs into canvases takes seconds, and a demo cannot open on
   // a black screen. The map goes up first; the samplers hydrate behind it and
   // are ready long before anyone reaches the plot-check tab.
-  var SAMPLED = ['historic','present','encroached','flowpath','floodprone'];
+  // The distance fields subsume four of the old mask samplers - a distance of
+  // zero IS the mask - so only 'encroached' still needs one. Fewer canvases,
+  // less memory, shorter hydrate chain.
+  var SAMPLED = ['encroached'];
 
   if(map.getSource('mask')) map.getSource('mask').setData(maskGeo(c.bounds));
   if(map.getSource('aoi')) map.getSource('aoi').setData(aoiGeo(c.bounds));
@@ -432,12 +568,18 @@ function loadCity(key){
     });
   });
 
-  // Sequential, so five large decodes never contend for the main thread at once.
+  // Measurement layers are probed but never attached to the map.
+  jobs = jobs.concat(DATA_LAYERS.map(function(id){
+    return exists('data/'+key+'/'+id+'.png').then(function(ok){ state.have[id] = ok; });
+  }));
+
+  // Sequential, so the large decodes never contend for the main thread at once.
   Promise.all(jobs).then(function(){
-    return SAMPLED.reduce(function(chain, id){
+    return SAMPLED.concat(DATA_LAYERS).reduce(function(chain, id){
       return chain.then(function(){
         if(!state.have[id]) return;
-        return makeSampler('data/'+key+'/'+id+'.png', c.bounds)
+        var exact = DATA_LAYERS.indexOf(id) !== -1;
+        return makeSampler('data/'+key+'/'+id+'.png', c.bounds, exact)
           .then(function(sm){ state.samplers[id] = sm; });
       });
     }, Promise.resolve());
@@ -459,7 +601,7 @@ function loadCity(key){
     map.fitBounds([[c.bounds[0],c.bounds[1]],[c.bounds[2],c.bounds[3]]],
       {padding: pad(), duration:900});
     renderStats(); renderList(); renderLegend(); applyMode(); update();
-    var missing = LAYERS.filter(function(l){return !state.have[l];});
+    var missing = LAYERS.concat(DATA_LAYERS).filter(function(l){return !state.have[l];});
     if(missing.length) toast('Missing layers: '+missing.join(', ')+' — run gee_blue_grid.js for '+c.label+', then ./fetch_layers.sh '+key);
     else if(!state.buildings) toast('No flagged_buildings.geojson yet — run the Earth Engine export task.');
     else hideToast();
@@ -473,12 +615,17 @@ function ramp(t,a,b){ return Math.max(0, Math.min(1, (t-a)/(b-a))); }
 
 function update(){
   var t = state.t;
-  document.getElementById('year').textContent = Math.round(2005 + t*20);
+  // Three different time framings used to coexist here: a slider counting
+  // 2005 to 2025, imagery that is a 2003-07 median against a 2023-25 median,
+  // and water layers from JRC's 1984-99 and 2000-21 epochs. The readout now
+  // names the composite actually on screen instead of inventing a year that
+  // nothing in the data corresponds to.
+  document.getElementById('year').textContent = t < .5 ? '2003–07' : '2023–25';
   document.getElementById('caption').textContent =
-    t<.12 ? 'The blue grid as the satellite record found it.' :
+    t<.12 ? 'Surface water recorded 1984–99, over 2003–07 imagery.' :
     t<.45 ? 'Water retreats. The edges go first.' :
     t<.78 ? 'Construction reaches the lakebed.' :
-            'What was built on the water, in red.';
+            'Water still present 2000–21, over 2023–25 imagery. Red is what was built on the difference.';
 
   if(!map.getLayer('rgb2005')) return;
   var m = state.mode, bo;
@@ -555,6 +702,7 @@ function setMode(m){
 function applyMode(){
   var m = state.mode;
   document.getElementById('map').classList.toggle('aim', m==='approval');
+  document.getElementById('ruleBar').classList.toggle('on', m==='approval');
   document.getElementById('timeline').classList.toggle('hid', m!=='timeline');
 
   var hint = document.getElementById('hint');
@@ -573,49 +721,140 @@ document.querySelectorAll('#modes button').forEach(function(b){
 // ===========================================================================
 // PLOT CHECK  — the approval-stage product, running entirely client side
 // ===========================================================================
-function checkPlot(lngLat){
+// Every value here is a straight byte read. There is no scaling arithmetic,
+// which is the entire reason the exported ranges were chosen to fit a byte.
+function readSite(lngLat){
   var b = CITIES[state.city].bounds, S = state.samplers;
-  if(!Object.keys(S).length){ toast('Still reading the layers — try again in a moment.'); return; }
-  var v = {
-    encroached: sample(S.encroached, lngLat.lng, lngLat.lat, b),
-    historic:   sample(S.historic,   lngLat.lng, lngLat.lat, b),
-    present:    sample(S.present,    lngLat.lng, lngLat.lat, b),
-    flow:       sample(S.flowpath,   lngLat.lng, lngLat.lat, b),
-    flood:      sample(S.floodprone, lngLat.lng, lngLat.lat, b)
+  var r = Math.max(6, state.plotM / 2);          // half the plot frontage
+  function buf(ch, mode){ return sampleCh(S.buffers, lngLat.lng, lngLat.lat, b, ch, mode, r); }
+  function his(ch, mode){ return sampleCh(S.history, lngLat.lng, lngLat.lat, b, ch, mode, r); }
+  var yc = his(0, 'max');
+  return {
+    // Distances take the MINIMUM over the plot: a buffer is breached if ANY
+    // part of the plot falls inside it, so the nearest approach governs.
+    // Taking the maximum here would pass every corner plot.
+    distPresent:   buf(0, 'min'),
+    distHistoric:  buf(1, 'min'),
+    distDrain:     buf(2, 'min'),
+    lastWaterYear: yc ? 1983 + yc : null,
+    occurrence:    his(1, 'max'),
+    handM:         his(2, 'min'),
+    encroached:    sample(S.encroached, lngLat.lng, lngLat.lat, b)
   };
+}
 
-  var r;
-  if(v.present > .15 && v.historic > .15)
-    r = {c:'blue', ic:'◆', t:'ACTIVE WATER BODY', s:'This is open water today. Construction is prohibited outright.'};
-  else if(v.encroached > .1)
-    r = {c:'red', ic:'✕', t:'REJECT — BUILT ON FORMER WATER', s:'Recorded as surface water before 2000, no longer water, and already under construction.'};
-  else if(v.historic > .15 && v.present <= .15)
-    r = {c:'red', ic:'✕', t:'REJECT — FORMER WATER BODY', s:'The satellite record classifies this plot as surface water before 2000. Building here removes storage the catchment still needs.'};
-  else if(v.flow > .1)
-    r = {c:'red', ic:'✕', t:'REJECT — NATURAL DRAINAGE PATH', s:'Terrain analysis places this plot on a channel that carries upstream runoff. Building here chokes the flow.'};
-  else if(v.flood > .1)
-    r = {c:'amber', ic:'⚠', t:'CONDITIONS REQUIRED — LOW GROUND', s:'Not former water, but low-lying land that receives displaced runoff. Requires on-site retention before approval.'};
-  else
-    r = {c:'green', ic:'✓', t:'CLEAR', s:'No historical water, drainage path or low ground detected at this plot.'};
+// Four outcomes, and deliberately none of them is APPROVE. This tool screens;
+// it does not grant permission, and saying so is both honest and the answer to
+// "would you approve a build on a tank too small for you to see?"
+function decide(m, rule){
+  if(m.distPresent === null || m.distHistoric === null)
+    return {d:'REFER', why:['This plot lies outside the mapped study area. No satellite evidence exists for it.']};
 
+  if(m.distPresent === 0)
+    return {d:'REJECT', why:['The plot footprint falls inside an existing surface water body, '
+      + 'recorded as water in ' + m.occurrence + '% of observations since 1984.']};
+
+  if(m.distHistoric === 0){
+    var when = m.lastWaterYear ? 'last recorded as water in ' + m.lastWaterYear
+                               : 'recorded as water before 2000';
+    if(m.occurrence >= 50){
+      var w = ['The plot sits on a former water body, ' + when + ', water in '
+        + m.occurrence + '% of observations.'];
+      if(m.encroached > .1) w.push('Construction is already present on this footprint.');
+      return {d:'REJECT', why:w};
+    }
+    return {d:'REFER', why:['The plot sits on land recorded as water only ' + m.occurrence
+      + '% of the time, ' + when + '. At 30 m resolution intermittent water cannot be '
+      + 'distinguished from a wet season.']};
+  }
+
+  var R = [];
+  function near(v, thr){ return Math.abs(v - thr) <= UNCERTAINTY_M; }
+
+  if(m.distPresent < rule.lakeM - UNCERTAINTY_M)
+    R.push({d:'REJECT', t:'The plot lies ' + m.distPresent + ' m from the present water edge, '
+      + 'inside the ' + rule.lakeM + ' m buffer.'});
+  else if(near(m.distPresent, rule.lakeM))
+    R.push({d:'REFER', t:'The plot lies ' + m.distPresent + ' m from the present water edge. '
+      + 'At ±' + UNCERTAINTY_M + ' m that cannot be resolved against the ' + rule.lakeM
+      + ' m buffer. Ground survey required.'});
+
+  // The finding this whole tool exists to make. An applicant measures their
+  // buffer from the shoreline as it stands today. Where the lake has since
+  // shrunk, that boundary is one encroachment itself produced, and the two
+  // measurements disagree.
+  if(m.distPresent - m.distHistoric > 30 && m.distHistoric < rule.lakeM)
+    R.push({d:'REFER', t:'Measured from today’s water edge the plot is ' + m.distPresent
+      + ' m away and clears the ' + rule.lakeM + ' m buffer. Measured from the 1984–99 '
+      + 'edge it is ' + m.distHistoric + ' m away, inside it. The shoreline has retreated '
+      + (m.distPresent - m.distHistoric) + ' m here, so the buffer measured today is drawn '
+      + 'from a boundary that encroachment created. Verify against the notified lake boundary.'});
+
+  // Never a rejection. MERIT Hydro is 90 m and cannot site an individual
+  // rajakaluve, so the honest output is a referral naming that limit.
+  if(m.distDrain < rule.drainM + UNCERTAINTY_M)
+    R.push({d:'REFER', t:'The plot lies about ' + m.distDrain + ' m from a terrain-derived '
+      + 'drainage line, against a ' + rule.drainM + ' m buffer. Drain order is not resolved '
+      + 'at the 90 m source resolution — check the BBMP rajakaluve alignment for this '
+      + 'survey number.'});
+
+  if(m.handM !== null && m.handM <= 1)
+    R.push({d:'CONDITIONS', t:'The plot stands ' + m.handM + ' m above the nearest drainage '
+      + 'line. On-site retention and a plinth condition should be imposed.'});
+
+  if(!R.length) return {d:'NO_OBJECTION', why:[
+    'No recorded water body, buffer breach or drainage line within ' + UNCERTAINTY_M
+      + ' m of this plot.',
+    'Absence of evidence at 30 m resolution is not evidence of absence: tanks under roughly '
+      + 'half a hectare do not appear in this record.']};
+
+  var rank = {REJECT:3, REFER:2, CONDITIONS:1};
+  var top = R.reduce(function(a,b){ return rank[b.d] > rank[a.d] ? b : a; });
+  return {d:top.d, why:R.map(function(x){ return x.t; })};
+}
+
+var OUTCOME = {
+  REJECT:       {c:'red',    ic:'✕', t:'REJECT'},
+  REFER:        {c:'violet', ic:'?',      t:'REFER TO GROUND SURVEY'},
+  CONDITIONS:   {c:'amber',  ic:'⚠', t:'CONDITIONS REQUIRED'},
+  NO_OBJECTION: {c:'green',  ic:'✓', t:'NO RECORDED OBJECTION'}
+};
+
+function metres(v){ return v === null ? '—' : v >= 255 ? '> 255 m' : v + ' m'; }
+
+function checkPlot(lngLat){
+  var S = state.samplers;
+  if(!S.buffers || !S.history){
+    toast('Measurement layers missing — re-run gee_blue_grid.js, then ./fetch_layers.sh '
+      + state.city); return;
+  }
+  var rule = RULESETS[state.rule];
+  var m = readSite(lngLat);
+  var out = decide(m, rule);
+  state.lastCheck = {m:m, out:out, lngLat:lngLat, rule:rule, at:new Date()};
+
+  var st = OUTCOME[out.d];
   if(state.marker) state.marker.remove();
-  var el = document.createElement('div'); el.className='pulse';
-  if(r.c==='green') el.style.background='#3fb950';
-  else if(r.c==='amber') el.style.background='#f0b429';
-  else if(r.c==='blue') el.style.background='#6cb6ff';
+  var el = document.createElement('div'); el.className = 'pulse';
+  el.style.background = st.c==='green' ? 'var(--green)' : st.c==='amber' ? 'var(--amber)'
+                      : st.c==='violet' ? 'var(--violet)' : 'var(--red)';
   state.marker = new maplibregl.Marker({element:el}).setLngLat(lngLat).addTo(map);
 
-  state.selected = null;
   var rows = [
-    ['Coordinates', lngLat.lat.toFixed(5)+', '+lngLat.lng.toFixed(5)],
-    ['Was water pre-2000', pct(v.historic)],
-    ['Is water today', pct(v.present)],
-    ['On drainage path', pct(v.flow)],
-    ['On low ground', pct(v.flood)]
+    ['Coordinates', lngLat.lat.toFixed(5) + ', ' + lngLat.lng.toFixed(5)],
+    ['Plot frontage assumed', state.plotM + ' m'],
+    ['To water edge today', metres(m.distPresent)],
+    ['To 1984–99 water edge', metres(m.distHistoric)],
+    ['To drainage line', metres(m.distDrain)],
+    ['Last recorded as water', m.lastWaterYear || 'never, 1984–2021'],
+    ['Water occurrence', m.occurrence === null ? '—' : m.occurrence + '%'],
+    ['Above nearest drainage', metres(m.handM)],
+    ['Rule applied', rule.label]
   ];
-  showVerdict(r, rows, null);
+
+  showVerdict({c:st.c, ic:st.ic, t:st.t, s:out.why.join(' ')}, rows, null,
+              [{label:'Issue screening certificate', fn:issueCertificate}]);
 }
-function pct(x){ return x>.5 ? 'yes' : x>.1 ? 'partial' : 'no'; }
 
 function selectBuilding(f){
   var p = f.properties;
@@ -638,7 +877,7 @@ function selectBuilding(f){
   showVerdict(r, rows, p);
 }
 
-function showVerdict(r, rows, p){
+function showVerdict(r, rows, p, actions){
   var el = document.getElementById('verdict');
   el.innerHTML =
     '<div class="vbadge '+r.c+'"><span class="ic">'+r.ic+'</span><span>'+r.t+'</span></div>' +
@@ -646,7 +885,11 @@ function showVerdict(r, rows, p){
     rows.map(function(x){
       return '<div class="metric"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span></div>';
     }).join('') +
-    (p ? '<button class="act" id="briefBtn">Generate evidence brief</button><div id="brief"></div>' : '');
+    (actions||[]).map(function(a,i){
+      return '<button class="act" data-act="'+i+'">'+a.label+'</button>';
+    }).join('') +
+    (p ? '<button class="act" id="briefBtn">Generate evidence brief</button>' : '') +
+    '<div id="brief"></div>';
   // A verdict is the answer to the question just asked, so it goes to the top
   // of the rail and the rail scrolls to it. On a short window it would
   // otherwise render below the fold, which loses the whole point.
@@ -656,6 +899,9 @@ function showVerdict(r, rows, p){
   el.style.animation='none'; void el.offsetWidth; el.style.animation='';
   rail.scrollTop = 0;
   if(p) document.getElementById('briefBtn').onclick = function(){ writeBrief(p); };
+  (actions||[]).forEach(function(a,i){
+    el.querySelector('[data-act="'+i+'"]').onclick = a.fn;
+  });
 }
 
 // Composed locally from the same fields already on screen, so the demo never
@@ -680,6 +926,159 @@ function writeBrief(p){
 'Derived from public satellite data. Requires ground verification before enforcement action.';
   var el = document.getElementById('brief');
   el.textContent = txt; el.style.display='block';
+}
+
+// ===========================================================================
+// SCREENING CERTIFICATE  — the artifact that leaves the screen
+// ===========================================================================
+var PROVENANCE = [
+  ['Surface water',  'JRC Global Surface Water v1.4 — transition, occurrence and YearlyHistory, 1984–2021'],
+  ['Terrain',        'MERIT Hydro v1.0.1 — upstream drainage area and height above nearest drainage, 90 m'],
+  ['Land cover',     'Dynamic World V1 — mode of annual labels, 2023–2025, 10 m'],
+  ['Footprints',     'Google Open Buildings v3 — confidence ≥ 0.70, area ≥ 40 m²'],
+  ['Imagery',        'Landsat 5 C02 L2 (2003–07), Sentinel-2 SR Harmonized (2023–25)'],
+  ['Distance field', 'fastDistanceTransform, EPSG:32643 at 10 m, ceiling 255 m'],
+  ['Raster',         '2048 × 1195 over the study area, 6.36 m per pixel']
+];
+
+var ERROR_BUDGET = [
+  ['JRC 30 m pixel — position of the shoreline', '± 15 m'],
+  ['Distance-transform quantum at 10 m',              '± 7 m'],
+  ['Raster georeferencing, one pixel',                '± 6 m'],
+  ['Thumbnail resample and byte decode',              'nil, nearest-neighbour'],
+  ['Combined in quadrature',                          '± ' + UNCERTAINTY_M + ' m']
+];
+
+// A plain hash, not crypto.subtle: that needs a secure context, and on a
+// hall's LAN IP this page is not one, where it would throw silently. The
+// canonical string is printed on the certificate so anyone can recompute the
+// digest and detect an altered copy.
+function fnv1a(str){
+  var h = 0x811c9dc5;
+  for(var i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))) >>> 0;
+  }
+  return ('00000000' + h.toString(16)).slice(-8).toUpperCase();
+}
+
+function nextSeq(){
+  var n = 1;
+  try {
+    n = (parseInt(localStorage.getItem('vbg_seq'), 10) || 0) + 1;
+    localStorage.setItem('vbg_seq', n);
+  } catch(e){}
+  return n;
+}
+
+function issueCertificate(){
+  var ck = state.lastCheck;
+  if(!ck){ toast('Check a plot first.'); return; }
+  toast('Capturing site evidence…');
+  map.flyTo({center:[ck.lngLat.lng, ck.lngLat.lat], zoom:17, duration:700});
+  map.once('idle', function(){
+    var snap = '';
+    try { snap = map.getCanvas().toDataURL('image/png'); } catch(e){}
+    hideToast();
+    renderCertificate(ck, snap);
+  });
+}
+
+function renderCertificate(ck, snap){
+  var m = ck.m, out = ck.out, rule = ck.rule, c = CITIES[state.city];
+  var iso = ck.at.toISOString();
+  var lat = ck.lngLat.lat, lon = ck.lngLat.lng;
+
+  var canon = [state.city, lat.toFixed(6), lon.toFixed(6), state.plotM, rule.id,
+    rule.lakeM, rule.drainM, m.distPresent, m.distHistoric, m.distDrain,
+    m.lastWaterYear, m.occurrence, m.handM, out.d, iso].join('|');
+  var ref = 'VBG/BLR/' + iso.slice(0,10).replace(/-/g,'') + '/'
+          + String(nextSeq()).padStart(4,'0') + '-' + fnv1a(canon);
+
+  function rows(pairs){
+    return pairs.map(function(r){
+      return '<div class="crow"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>';
+    }).join('');
+  }
+
+  document.getElementById('sheet').innerHTML =
+    '<div class="cert">' +
+      '<div class="chead">' +
+        '<div><h2>Preliminary satellite screening</h2>' +
+        '<div class="lede">' + c.label + ' — ' + c.sub + '. A screening result '
+          + 'derived from public satellite data. It is not a survey and does not '
+          + 'substitute for the notified boundary.</div></div>' +
+        '<div class="cref"><b>' + ref + '</b><span>issued ' + iso.replace('T',' ').slice(0,19) + ' UTC</span></div>' +
+      '</div>' +
+
+      '<div class="cert-decision ' + OUTCOME[out.d].c + '">' + OUTCOME[out.d].t + '</div>' +
+      '<ol class="creason">' + out.why.map(function(w){ return '<li>'+w+'</li>'; }).join('') + '</ol>' +
+
+      '<h3>Application</h3>' +
+      '<div class="cfields">' +
+        '<label>Application no.<input class="cin"></label>' +
+        '<label>Survey / khata no.<input class="cin"></label>' +
+        '<label>Applicant<input class="cin"></label>' +
+      '</div>' +
+
+      '<h3>Measurements</h3>' +
+      rows([
+        ['Coordinates', lat.toFixed(6) + ', ' + lon.toFixed(6)],
+        ['Plot frontage assumed', state.plotM + ' m (probe radius ' + Math.max(6, state.plotM/2) + ' m)'],
+        ['Distance to water edge today', metres(m.distPresent) + ' ± ' + UNCERTAINTY_M + ' m'],
+        ['Distance to 1984–99 water edge', metres(m.distHistoric) + ' ± ' + UNCERTAINTY_M + ' m'],
+        ['Distance to drainage line', metres(m.distDrain) + ' ± ' + UNCERTAINTY_M + ' m'],
+        ['Last recorded as water', m.lastWaterYear || 'never, 1984–2021'],
+        ['Water occurrence, 1984–2021', (m.occurrence === null ? '—' : m.occurrence + '%')],
+        ['Height above nearest drainage', metres(m.handM)]
+      ]) +
+
+      '<h3>Rule applied</h3>' +
+      rows([
+        ['Ruleset', rule.label],
+        ['Lake buffer', rule.lakeM + ' m'],
+        ['Drain buffer', rule.drainM + ' m'],
+        ['Citation', rule.cite]
+      ]) +
+      '<p class="cnote">Buffer distances are operator configuration, not a legal '
+        + 'determination by this tool. Confirm against the notification in force.</p>' +
+
+      (snap ? '<h3>Site evidence</h3><img class="csnap" src="' + snap + '" alt="site">' : '') +
+
+      '<h3>Error budget</h3>' + rows(ERROR_BUDGET) +
+
+      '<h3>Provenance</h3>' + rows(PROVENANCE) +
+      rows([['Study area', c.bounds.join(', ')]]) +
+
+      '<h3>Integrity</h3>' +
+      '<p class="cnote">The reference digest is FNV-1a over the canonical string below. '
+        + 'Recompute it from the same inputs to detect alteration.</p>' +
+      '<div class="ccanon">' + canon + '</div>' +
+
+      '<h3>Ground verification</h3>' +
+      '<div class="cbox"></div>' +
+      '<p class="ccheck">☐ Verified against the notified lake boundary and the '
+        + 'BBMP rajakaluve alignment.</p>' +
+      '<div class="csign">' +
+        '<div>Name and designation<hr></div><div>Employee ID<hr></div>' +
+        '<div>Date<hr></div><div>Signature<hr></div>' +
+      '</div>' +
+
+      '<p class="cfoot">Derived from public satellite data at 30 m and 90 m source '
+        + 'resolution. Tanks below roughly half a hectare do not appear in this record, '
+        + 'so absence of a finding is not evidence of absence. This document neither '
+        + 'grants nor refuses permission.</p>' +
+
+      '<button class="act noprint" id="printCert">Print / save as PDF</button>' +
+    '</div>';
+
+  document.getElementById('modal').classList.add('on');
+  document.getElementById('printCert').onclick = function(){ window.print(); };
+  // A typed value lives only in the DOM property, which print ignores.
+  // Mirroring it to the attribute is what makes it appear on paper.
+  Array.prototype.forEach.call(document.querySelectorAll('.cin'), function(el){
+    el.oninput = function(){ el.setAttribute('value', el.value); };
+  });
 }
 
 // ===========================================================================
@@ -717,26 +1116,46 @@ function renderStats(){
 
   if(!s){ host.innerHTML = '<div class="metric"><span class="k">No stats.json for '+c.label+'</span></div>'; return; }
 
-  var lossPct = s.historic_ha ? (s.historic_ha - s.present_ha)/s.historic_ha*100 : 0;
+  // Two figures for the same idea used to sit in one card: lost_ha (the mapped
+  // mask, after the flooded-vegetation guard and the 4-pixel minimum patch)
+  // beside a percentage derived from historic - present. Both are real and they
+  // measure different things, but shown together they invite exactly the
+  // subtraction a sceptical reader will do, and fail it. Each card is now
+  // internally consistent, and the filtered figure says that it is filtered.
+  var netLoss = (s.historic_ha != null && s.present_ha != null)
+    ? s.historic_ha - s.present_ha : null;
+  var lossPct = s.historic_ha ? netLoss/s.historic_ha*100 : 0;
+
+  var FILTERED = 'Mask area after the flooded-vegetation guard and the 4-pixel '
+    + 'minimum patch, so it is smaller than the net change.';
+
   var rows;
   if(state.mode==='impact'){
     rows = [
-      ['Flood-prone low ground', s.floodprone_ha, ' ha', 1, 'violet', false],
-      ['Buildings on low ground', s.buildings_in_floodprone, '', 0, 'violet', true],
-      ['Storage lost upstream', s.lost_ha, ' ha', 1, 'red', false],
-      ['Built on former water', s.encroached_ha, ' ha', 2, 'red', false]
+      ['Flood-prone low ground', s.floodprone_ha, ' ha', 1, 'violet', false,
+       'Land under 2 m above the nearest natural drainage line (MERIT Hydro hnd).'],
+      ['Buildings on low ground', s.buildings_in_floodprone, '', 0, 'violet', true,
+       'Open Buildings footprints intersecting that low ground.'],
+      ['Mapped loss, filtered', s.lost_ha, ' ha', 1, 'red', false, FILTERED],
+      ['Built on former water', s.encroached_ha, ' ha', 2, 'red', false,
+       'Mapped loss that Dynamic World also classifies as built.']
     ];
   } else {
     rows = [
-      ['Water, 1984–99', s.historic_ha, ' ha', 1, 'blue', false],
-      ['Water, 2000–21', s.present_ha, ' ha', 1, 'blue', false],
-      ['Lost', s.lost_ha, ' ha', 1, 'red', false],
-      ['Blue grid gone', lossPct, '%', 0, 'red', true]
+      ['Water, 1984–99', s.historic_ha, ' ha', 1, 'blue', false,
+       'JRC Global Surface Water transition classes 1, 3, 4, 6, 7, 8.'],
+      ['Water, 2000–21', s.present_ha, ' ha', 1, 'blue', false,
+       'JRC transition classes 1, 2, 4, 5, 7, 8.'],
+      ['Net loss', netLoss, ' ha', 1, 'red', false,
+       'The two rows above, subtracted. Nothing else.'],
+      ['Blue grid gone', lossPct, '%', 0, 'red', true,
+       'Net loss as a share of the 1984-99 extent.']
     ];
   }
   host.innerHTML = rows.map(function(r,i){
-    return '<div class="metric'+(r[5]?' big':'')+'"><span class="k">'+r[0]+
-      '</span><span class="v '+r[4]+'" id="m'+i+'">'+(r[1]==null?'—':'')+'</span></div>';
+    return '<div class="metric'+(r[5]?' big':'')+'" title="'+(r[6]||'')+'">'+
+      '<span class="k">'+r[0]+'</span><span class="v '+r[4]+'" id="m'+i+'">'+
+      (r[1]==null?'—':'')+'</span></div>';
   }).join('');
   rows.forEach(function(r,i){
     if(r[1]!=null) animateTo(document.getElementById('m'+i), r[1], r[2], r[3]);
@@ -754,8 +1173,8 @@ function renderList(){
     title.textContent = 'Ranked offenders · '+state.buildings.features.length+' flagged';
     host.innerHTML = fs.map(function(f,i){
       var p = f.properties;
-      var col = p.verdict==='RED_FORMER_WATER_BODY' ? '#ff5b52'
-              : p.verdict==='RED_BLOCKS_DRAINAGE' ? '#f0b429' : '#8b949e';
+      var col = p.verdict==='RED_FORMER_WATER_BODY' ? PALETTE.encroached
+              : p.verdict==='RED_BLOCKS_DRAINAGE' ? PALETTE.flowpath : '#8b949e';
       return '<div class="item" data-i="'+i+'">'+
         '<span class="rank">'+(i+1)+'</span>'+
         '<span class="dot" style="background:'+col+'"></span>'+
@@ -796,15 +1215,16 @@ function renderList(){
 
 function renderLegend(){
   var m = state.mode;
+  var P = PALETTE;
   var keys = m==='impact'
-    ? [['#a371f7','Flood-prone low ground'],['#f0b429','Natural drainage path'],
-       ['#ff5b52','Built on former water'],['#6cb6ff','Water today']]
+    ? [[P.floodprone,'Flood-prone low ground'],[P.flowpath,'Natural drainage path'],
+       [P.encroached,'Built on former water'],[P.present,'Water today']]
     : m==='approval'
-    ? [['#2f81f7','Was water pre-2000'],['#6cb6ff','Water today'],
-       ['#ff5b52','Built on former water'],['#f0b429','Drainage path'],
-       ['#a371f7','Low ground']]
-    : [['#2f81f7','Water, 1984–99'],['#6cb6ff','Water today'],
-       ['#ff5b52','Built on former water'],['#f0b429','Blocks a drainage path']];
+    ? [[P.historic,'Water, 1984–99'],[P.present,'Water, 2000–21'],
+       [P.encroached,'Built on former water'],[P.flowpath,'Drainage path'],
+       [P.floodprone,'Low ground']]
+    : [[P.historic,'Water, 1984–99'],[P.present,'Water, 2000–21'],
+       [P.encroached,'Built on former water'],[P.flowpath,'Blocks a drainage path']];
   document.getElementById('legend').innerHTML = keys.map(function(k){
     return '<div class="key"><span class="sw" style="background:'+k[0]+'"></span>'+k[1]+'</div>';
   }).join('');
@@ -817,6 +1237,23 @@ function hideToast(){ document.getElementById('toast').style.display='none'; }
 // ===========================================================================
 // CITY SWITCH, VALIDATION, EXPORT
 // ===========================================================================
+var ruleSel = document.getElementById('ruleSel');
+ruleSel.innerHTML = Object.keys(RULESETS).map(function(k){
+  return '<option value="'+k+'">'+RULESETS[k].label+'</option>';
+}).join('');
+ruleSel.value = state.rule;
+ruleSel.onchange = function(){
+  state.rule = this.value;
+  // Re-decide the site already on screen rather than leaving a verdict that
+  // was reached under a rule the officer has just changed.
+  if(state.lastCheck) checkPlot(state.lastCheck.lngLat);
+};
+document.getElementById('plotM').onchange = function(){
+  state.plotM = Math.max(5, Math.min(300, +this.value || 30));
+  this.value = state.plotM;
+  if(state.lastCheck) checkPlot(state.lastCheck.lngLat);
+};
+
 var citySel = document.getElementById('city');
 citySel.innerHTML = Object.keys(CITIES).map(function(k){
   return '<option value="'+k+'">'+CITIES[k].label+' — '+CITIES[k].sub+'</option>';

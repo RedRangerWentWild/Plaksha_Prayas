@@ -14,7 +14,7 @@ it gets built on.
 **1. Extract (Earth Engine, browser, ~2 min)**
 
 Paste `gee_blue_grid.js` into <https://code.earthengine.google.com> and Run.
-The console prints seven `PNG <name>: https://...` lines and six figures.
+The console prints nine `PNG <name>: https://...` lines and six figures.
 
 **2. Pull the layers down**
 
@@ -68,9 +68,53 @@ Paste the printed block into the `CITIES` table in `index.html`.
 
 | Mode | Question it answers |
 |---|---|
-| **Timeline** | What was here, and what happened to it? Scrub 2005 → 2025, real imagery underneath. Space bar plays it. |
-| **Plot check** | Can this plot be built on? Click anywhere for an instant verdict. |
+| **Timeline** | What was here, and what happened to it? Scrub the 2003–07 composite to the 2023–25 one. Space bar plays it. |
+| **Plot check** | May this plot be built on? Click anywhere for a screening decision against a selectable buffer regime. |
 | **Downstream** | Who pays? Low ground receiving the runoff the lost tanks used to hold. |
+
+### What the plot check decides
+
+Four outcomes, and deliberately none of them is *approve* — this screens, it
+does not grant permission.
+
+| | Meaning |
+|---|---|
+| **REJECT** | Inside live water, on a former water body with ≥ 50% occurrence, or confidently inside a buffer. |
+| **REFER TO GROUND SURVEY** | The measurement cannot resolve the question at ±20 m, or the two shorelines disagree. |
+| **CONDITIONS REQUIRED** | Low ground: retention and a plinth condition. |
+| **NO RECORDED OBJECTION** | Nothing found — which at 30 m is not the same as nothing there. |
+
+The finding worth demonstrating is the shoreline disagreement. An applicant
+measures their buffer from the water's edge *as it stands today*. Where the
+lake has already shrunk, that edge is one encroachment produced, so the buffer
+measured from the 1984–99 edge lands somewhere else entirely. When the two
+distances differ by more than one JRC pixel the tool says so.
+
+Buffer distances are **operator configuration**, not a legal determination:
+
+| Ruleset | Lake | Drain |
+|---|---|---|
+| State revision | 30 m | 25 m |
+| NGT, upheld by the Supreme Court | 75 m | 50 m |
+
+A consequence worth knowing before anyone asks: at ±20 m measurement
+uncertainty, the 30 m buffer is barely outside the error bar, so under that
+ruleset most near-lake plots return REFER rather than REJECT. The 75 m buffer
+is confidently testable. That is a fact about the rule, not a defect in the
+tool.
+
+### Layer channels
+
+Two exports carry measurements rather than colour and are never drawn:
+
+- `buffers.png` — R: metres to today's water edge · G: metres to the 1984–99
+  edge · B: metres to the nearest drainage line. 255 means "beyond the ceiling".
+- `history.png` — R: last year water was recorded, as `year − 1983`, 0 = never
+  · G: JRC occurrence percent · B: height above nearest drainage, metres.
+
+The distance transform runs at **10 m**, which must stay coarser than the
+6.36 m/px export or the thumbnail downsamples and averages adjacent byte codes
+into distances that never existed. Do not "optimise" it finer.
 
 The plot check reads the same PNGs the map draws, pixel by pixel, in an
 offscreen canvas. No server, no API, no network. It cannot fail on stage.
@@ -139,6 +183,7 @@ gee_blue_grid.js   extraction — the only thing that touches Earth Engine
 index.html         the whole app, single file, no build step
 fetch_layers.sh    downloads exported PNGs into data/<city>/
 hotspots.py        finds where encroachment concentrates, prints coordinates
+validate.py        scores MNDWI against the JRC reference on held-out blocks
 data/<city>/       layers, stats.json, flagged_buildings.geojson
 urls/<city>.txt    pasted Earth Engine console links
 ```

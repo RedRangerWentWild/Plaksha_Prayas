@@ -280,6 +280,79 @@ print('PNG ref2005:', refWater2005
 print('PNG mndwi2005:', mndwi2005
   .visualize({min:-1, max:1, palette:['000000','ffffff']}).getThumbURL(THUMB));
 
+// ---------------------------------------------------------------------------
+// 11. BUFFER DISTANCES  — the question approval rules actually ask
+// ---------------------------------------------------------------------------
+// Karnataka's rules are written as distances: the state revision sets a 30 m
+// lake buffer, the NGT direction upheld by the Supreme Court sets 75 m. A tool
+// that can only say "this pixel was water" answers neither.
+//
+// fastDistanceTransform returns SQUARED distance in SQUARED PIXELS to the
+// nearest non-zero pixel. It only becomes metres in a metric projection at a
+// known scale, hence UTM rather than the 4326 grid everything else sits on.
+//
+// The 10 m scale is not arbitrary. The AOI is 13,020 m wide exported at
+// 2048 px = 6.36 m per pixel, so any distance-transform scale FINER than
+// 6.36 m would be downsampled by the thumbnail, averaging adjacent byte codes
+// into distances that never existed. 10 m stays safely coarser, and Earth
+// Engine's default nearest-neighbour upsampling to 6.36 m is bit-exact.
+var DTPROJ = ee.Projection('EPSG:32643').atScale(10);   // UTM 43N covers Bengaluru
+var DT_PX = 48;                                          // 480 m search radius
+
+function distanceMetres(mask){
+  return mask.unmask(0).reproject(DTPROJ)
+    .fastDistanceTransform({neighborhood: DT_PX, units: 'pixels',
+                            metric: 'squared_euclidean'})
+    .sqrt()          // squared pixels to pixels
+    .multiply(10)    // pixels to metres, because DTPROJ is at 10 m
+    .min(255)        // 255 is a saturation flag, not a measurement
+    .round().toUint8();
+}
+
+// Deliberately NOT the clipped flowPath from section 5. A channel 200 m
+// outside the AOI still governs a plot 20 m inside it; measuring distance to a
+// clipped mask reports those plots as clear.
+var flowPathRaw = upstreamArea.gt(2).and(hand.lt(2));
+
+// R = metres to the water edge as it stands TODAY
+// G = metres to the water edge as it stood 1984-99
+// B = metres to the nearest terrain-derived drainage line
+//
+// Carrying both shorelines is the point. An applicant measures their buffer
+// from today's edge. If the lake has since shrunk, that buffer is measured
+// from a boundary that encroachment itself created, and the two numbers
+// disagree. That disagreement is the finding.
+var buffers = distanceMetres(presentWaterJRC).rename('r')
+  .addBands(distanceMetres(historicWater).rename('g'))
+  .addBands(distanceMetres(flowPathRaw).rename('b'))
+  .unmask(255)     // before clip: a masked pixel decoding to 0 would read as
+  .clip(AOI);      // "zero metres away" and reject a plot over a data hole
+
+// ---------------------------------------------------------------------------
+// 12. HISTORY AND CONFIDENCE
+// ---------------------------------------------------------------------------
+// R = last year classified as water, encoded year - 1983 (0 = never, 1984-2021)
+// G = JRC occurrence, per cent of valid observations that were water
+// B = height above nearest drainage, metres, clamped at 255
+//
+// Occurrence is what separates a drained tank from a field that floods in a
+// wet year, and it is what the tool uses to decide whether it may rule at all.
+var lastWaterCode = ee.ImageCollection('JRC/GSW1_4/YearlyHistory').map(function(im){
+  var y = ee.Number(ee.Date(im.get('system:time_start')).get('year'));
+  return im.select('waterClass').gte(2).multiply(y.subtract(1983));
+}).max().unmask(0).toUint8();
+
+var history = lastWaterCode.rename('r')
+  .addBands(gsw.select('occurrence').unmask(0).round().toUint8().rename('g'))
+  .addBands(hand.unmask(255).min(255).round().toUint8().rename('b'))
+  .clip(AOI);
+
+// min and max are mandatory. Without them visualize auto-stretches each band,
+// the image still looks plausible, and every decoded number is wrong.
+var BYTES = {bands:['r','g','b'], min:0, max:255};
+print('PNG buffers:', buffers.visualize(BYTES).getThumbURL(THUMB));
+print('PNG history:', history.visualize(BYTES).getThumbURL(THUMB));
+
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.
 Export.table.toDrive({
