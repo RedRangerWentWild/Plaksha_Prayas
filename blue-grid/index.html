@@ -376,7 +376,21 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-ra
   border-bottom:1px solid var(--line);flex:none}
 .ahead .q{font:600 12.5px/1.45 var(--sans);flex:1;min-width:0}
 .ahead .gen{font:600 9.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
-  color:var(--faint);flex:none;padding-top:2px}
+  color:var(--faint);flex:none;padding-top:2px;display:flex;align-items:center;gap:5px}
+/* While the model is still being asked, the answer on screen is the local one
+   and it has to say so. Without this the deterministic paragraph rendered
+   instantly, read as final, and was then silently swapped under the reader —
+   who had no way to know a second answer was ever coming. */
+.ahead .gen.pending{color:var(--accent)}
+.spin{width:9px;height:9px;flex:none;border-radius:50%;
+  border:1.5px solid rgba(77,159,255,.28);border-top-color:var(--accent);
+  animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.atext.provisional{opacity:.68;transition:opacity .25s}
+/* And when it is swapped, the swap is visible. */
+.atext.settled{animation:settle 1.2s ease-out}
+@keyframes settle{0%{background:rgba(77,159,255,.15);box-shadow:0 0 0 6px rgba(77,159,255,.15)}
+  100%{background:transparent;box-shadow:0 0 0 6px transparent}}
 #answer{padding:14px 15px;overflow-y:auto;min-height:0}
 
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -2881,7 +2895,7 @@ function linkCitations(text, order){
   });
 }
 
-function renderAnswer(pack, ans, note){
+function renderAnswer(pack, ans, note, pending, upgraded){
   var host = document.getElementById('answer');
   if(!host) return;
   var fm = factMap(pack);
@@ -2916,13 +2930,16 @@ function renderAnswer(pack, ans, note){
   // composed it. Those two facts qualify everything underneath them.
   document.getElementById('answerHead').innerHTML =
     '<span class="q">' + esc(pack.question) + '</span>' +
-    '<span class="gen">' + (ans.generator === 'model'
-      ? 'model \u00b7 ' + pack.chunks.length + ' sources'
-      : 'composed locally') + '</span>';
+    '<span class="gen' + (pending ? ' pending' : '') + '">' + (pending
+      ? '<span class="spin"></span>local \u00b7 asking the model'
+      : ans.generator === 'model'
+        ? 'model \u00b7 ' + pack.chunks.length + ' sources'
+        : 'composed locally') + '</span>';
 
   host.innerHTML =
     (note ? '<div class="awarn">' + esc(note) + '</div>' : '') +
-    '<div class="atext">' + linkCitations(body, order) + '</div>' +
+    '<div class="atext' + (pending ? ' provisional' : upgraded ? ' settled' : '') +
+      '">' + linkCitations(body, order) + '</div>' +
     (ans.refused && ans.refused.length ? '<div class="arefuse">' +
       ans.refused.map(function(r){
         var c = pack.chunks.filter(function(x){ return x.id === r.chunk; })[0];
@@ -3004,8 +3021,13 @@ function ask(question, ctxOverride){
   // Tier 0 goes up first, always, before any network attempt. Everything after
   // this point is an improvement on an answer the officer can already read.
   var offline = composeOffline(pack);
-  renderAnswer(pack, offline, state.corpus ? null
-    : 'Corpus not loaded — answering without citations. Run ./build_corpus.py.');
+  var corpusNote = state.corpus ? null
+    : 'Corpus not loaded — answering without citations. Run ./build_corpus.py.';
+  // Rendered pending, not finished. Tier 0 still goes up first and still works
+  // with the cable pulled, but it now announces that it is the local answer
+  // and that a second one is on its way, so the reader is never shown a
+  // paragraph that looks settled while a request is still in flight.
+  renderAnswer(pack, offline, corpusNote, true);
   state.lastAnswer = {pack: pack, answer: offline, at: new Date()};
 
   var btn = document.getElementById('askBtn');
@@ -3013,7 +3035,8 @@ function ask(question, ctxOverride){
 
   askServer(pack).then(function(res){
     if(res.unavailable){
-      renderAnswer(pack, offline, 'Local answer: ' + res.unavailable + '.');
+      renderAnswer(pack, offline, 'Staying with the local answer: '
+        + res.unavailable + '.', false);
       return;
     }
     var bad = validateAnswer(res, pack);
@@ -3022,12 +3045,13 @@ function ask(question, ctxOverride){
       // entitled to know the machine said something the tool would not stand
       // behind, and the deterministic answer is already on screen.
       console.warn('model answer withheld: ' + bad, res);
-      renderAnswer(pack, offline, 'Model answer withheld — ' + bad + '.');
+      renderAnswer(pack, offline, 'Model answer withheld — ' + bad
+        + '. The local answer below stands.', false);
       return;
     }
     res.generator = 'model';
     res.what = res.what_would_change_this;
-    renderAnswer(pack, res, null);
+    renderAnswer(pack, res, null, false, true);
     state.lastAnswer = {pack: pack, answer: res, at: new Date()};
   }).then(function(){
     state.asking = false;
@@ -3207,9 +3231,24 @@ function renderLegend(){
   }).join('');
 }
 
-function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
-  t.onclick=function(){ t.style.display='none'; }; }
-function hideToast(){ document.getElementById('toast').style.display='none'; }
+// Every one of these is a recoverable notice about a missing optional input,
+// and the condition it reports is already visible in the panel it concerns —
+// an empty list, a disabled export. Leaving it pinned over the map for the
+// rest of the session, as the flagged-buildings notice was, turns a one-time
+// hint into furniture.
+var toastTimer = null;
+function toast(msg, sticky){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  t.onclick = hideToast;
+  clearTimeout(toastTimer);
+  if(!sticky) toastTimer = setTimeout(hideToast, 9000);
+}
+function hideToast(){
+  clearTimeout(toastTimer);
+  document.getElementById('toast').style.display = 'none';
+}
 
 // ===========================================================================
 // CITY SWITCH, VALIDATION, EXPORT
