@@ -369,6 +369,13 @@ def structured_answer(out):
 class Handler(SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
+    # The typeface is served from assets/fonts/ rather than a CDN, so a demo
+    # that loses the network keeps its typography. mimetypes does not know
+    # woff2 on every Python build, and Chrome refuses a font served as
+    # application/octet-stream.
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
+                      '.woff2': 'font/woff2', '.woff': 'font/woff'}
+
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=ROOT, **kw)
 

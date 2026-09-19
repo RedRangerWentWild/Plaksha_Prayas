@@ -82,11 +82,18 @@ Paste the printed block into the `CITIES` table in `index.html`.
 
 ## The three modes
 
-| Mode | Question it answers |
-|---|---|
-| **Timeline** | What was here, and what happened to it? Scrub the 2003–07 composite to the 2023–25 one. Space bar plays it. |
-| **Plot check** | May this plot be built on? Click anywhere for a screening decision against a selectable buffer regime. |
-| **Downstream** | Who pays? Low ground receiving the runoff the lost tanks used to hold. |
+| Mode | Question it answers | Ground it draws on |
+|---|---|---|
+| **Timeline** | What was here, and what happened to it? Scrub the 2003–07 composite to the 2023–25 one. Space bar plays it. | Satellite, always — the imagery *is* the evidence |
+| **Plot check** | May this plot be built on? Click anywhere for a screening decision against a selectable buffer regime. | Pale basemap by default |
+| **Downstream** | Who pays? Low ground receiving the runoff the lost tanks used to hold, and the route from a checked plot to it. | Pale basemap by default |
+
+The **Map / Satellite** switch in the bottom-right corner overrides that
+default. Satellite imagery is the right ground when the question is *what
+changed here* — you can see the lakebed and the rooftops standing on it. It is
+the wrong ground when the question is *what constrains this plot*, because
+canopy, shadow and rooftop all carry the same visual weight as a flagged
+footprint. Timeline mode does not offer the switch.
 
 Any plot or flagged structure can then be asked about in plain language —
 *what happens if a construction occurs here*, *should this be allowed*, *will it
@@ -134,7 +141,7 @@ tool.
 
 ### Layer channels
 
-Two exports carry measurements rather than colour and are never drawn:
+Four exports carry measurements rather than colour and are never drawn:
 
 - `buffers.png` — R: metres to today's water edge · G: metres to the 1984–99
   edge · B: metres to the nearest drainage line. 255 means "beyond the ceiling".
@@ -146,6 +153,21 @@ Two exports carry measurements rather than colour and are never drawn:
   area. The only layer not read as a straight byte, so the decode law is
   printed on the certificate. Optional: without it every answer says upstream
   catchment is unavailable rather than guessing at it.
+- `routing.png` — R: MERIT Hydro flow direction, remapped off its native powers
+  of two into `0` nodata · `1` E · `2` SE · `3` S · `4` SW · `5` W · `6` NW ·
+  `7` N · `8` NE · `9` mouth · `10` depression. G and B reserved. Optional:
+  without it the downstream panel says so rather than tracing nothing and
+  calling it a route.
+
+The direction channel is **categorical**, and that changes what can be checked.
+The graded-field rule that catches a collapsed distance field — more than thirty
+distinct codes or it is a mask — would fail a perfectly good direction layer,
+which legally holds eleven. Worse, passing it would prove nothing: a flow field
+can be entirely plausible and entirely wrong. `verify_encoding.py` tests three
+other things instead, and the third is the one that matters — upstream area must
+be **non-decreasing downstream**. A transposed, flipped or bilinearly averaged
+direction field breaks that immediately while still producing routes that look
+like routes.
 
 The distance transform runs at **10 m**, which must stay coarser than the
 6.36 m/px export or the thumbnail downsamples and averages adjacent byte codes
@@ -153,6 +175,142 @@ into distances that never existed. Do not "optimise" it finer.
 
 The plot check reads the same PNGs the map draws, pixel by pixel, in an
 offscreen canvas. No server, no API, no network. It cannot fail on stage.
+
+---
+
+## Downstream — where the displaced water goes
+
+The plot check can say a development displaces roughly N cubic metres per design
+storm. Until now it could not say where those cubic metres went, which left
+*who pays* a rhetorical question: a volume with no destination.
+
+Click a plot and the tool now walks MERIT Hydro's own flow-direction field
+downhill from it, one 90 m cell at a time, and draws the line. The panel names
+the ground the route reaches, ranked by how much catchment concentrates there.
+
+**It reports receiving, never inundation.** The route says water runs downhill
+across this ground. It does not say the ground floods, and the tool still
+refuses depth, level, extent and probability exactly as before — the four
+refusal chunks are unchanged and a flooding question still forces them into
+every answer.
+
+### Why the direction field had to be exported
+
+Nothing already on disk could substitute. `upa` says how much land drains
+*through* a point and `hnd` says how deep it sits; neither says which way water
+*leaves*. The obvious shortcut — descend `hydro.png`'s blue channel — does not
+work: that channel is elevation above the study-area minimum, quantised to 1 m
+over about 60 m of local relief, while a 90 m step across this catchment falls
+roughly 0.05–0.2 m. Descending it would be descending the quantisation, and it
+produces long flats, arbitrary jumps and closed loops that look exactly like
+routes.
+
+### Why the trace steps cells and not pixels
+
+MERIT's cell is 90 m; the export is 6.36 m/px. Stepping one pixel at a time
+would read the same cell about fourteen times and invent precision the source
+does not have. Diagonal steps cross a factor of √2 more ground than orthogonal
+ones and are counted that way — calling every step 90 m understates a diagonal
+route by forty per cent.
+
+The walk stops at an outlet, a closed depression, a trunk channel, the edge of
+the study area, a cell already visited, or 200 steps. **Which of those ended it
+is reported**, because a route that ran out of study area and a route that
+reached a trunk channel are different findings and only one of them is complete.
+
+### What is checked, and what is not claimed
+
+`./verify_encoding.py` asserts three things about the direction field: every
+code is legal, every trace terminates, and upstream area is non-decreasing
+downstream. The third is the real guard. A flipped or averaged direction field
+produces confident, plausible, wrong routes, and that invariant is what catches
+it — it was written before any trace was trusted, and it caught the first test
+fixture that tried to fake a flow field by descending distance-to-trunk.
+
+`./validate.py <city> --routing` scores how often traced cells land on the
+flow-path mask, which is built by a different code path from the same two bands.
+It prints the baseline beside the figure, because agreement means nothing until
+you know what agreement a random walk would score.
+
+It is **not an accuracy**, and the output says so. Both readings come from MERIT
+Hydro, so this is cross-method agreement inside one source rather than
+independent corroboration. There is no surveyed drain network for this
+catchment; anyone reporting how often these routes are right has invented it.
+That is the same position `validate.py` already takes on lakes.
+
+### The honest limit
+
+The trace follows terrain, not pipes. MERIT resolves catchment drainage at a
+scale far coarser than a single storm drain, so a route crossing a built-up
+block says water runs downhill across it, not that a channel exists there. A
+downstream finding is a lead for verification, in the same way a drainage
+finding is — `limit/routing-is-not-a-drain-network.md` states this and rides
+into every answer the route appears in.
+
+---
+
+## The interface
+
+Everything below is a legibility argument, not a style preference.
+
+### Two eras, two hue families
+
+The first version of this drew 1984–99 water in `#1f6feb` and 2000–21 water in
+`#58a6ff`, over satellite imagery, and expected a viewer to tell two decades
+apart by saturation. Nobody could, including the people who built it.
+
+Water that survived is now **cyan**. Water that was lost is **amber**, which is
+a different hue family, not a different shade of the same one. Built-on-former-
+water stays **crimson**. Read together on one frame: cyan is the remnant, amber
+is what used to surround it, red is what is standing on the difference.
+
+Amber alone is not enough, because dry-season Landsat over Bengaluru is very
+nearly the colour of amber. So the lost water carries two more signals:
+
+- **It is hatched.** Diagonal stripes read as annotation in every mapping
+  tradition there is, and the ground shows through between them at full
+  chroma, so the amber stays amber instead of averaging into olive over
+  vegetation. The hatch only appears at close zoom; across the whole catchment
+  a 4 px period in a 2048 px raster downsamples below the point where stripes
+  exist, so `update()` crossfades to a solid wash on zoom-out.
+- **Its 1984–99 shoreline is drawn as a line.** `traceEdge()` walks the mask
+  in the browser and marks every pixel on the inner boundary. That contour
+  over today's ground, with red construction inside it, is the whole finding
+  in one frame.
+
+### The palette lives in the client, not in Earth Engine
+
+`gee_blue_grid.js` still stamps a colour into every visual export, but each of
+those layers is a **single flat colour behind an alpha mask** — the colour is
+decoration, the alpha is the data. `tint()` repaints them on load. So the map
+palette can change in `index.html` alone, without a two-minute Earth Engine run
+and ten fresh thumbnail URLs, and the legend cannot drift out of step with the
+map because both read `PALETTE`.
+
+`DATA_LAYERS` never goes through `tint()`. Re-tinting a byte-packed distance
+field would destroy the measurement.
+
+### Chrome is monochrome
+
+Graphite, paper, hairlines. Every colour on screen belongs to a layer or to a
+verdict. A screening tool that paints its own buttons blue is telling the
+reader that blue means *clickable* at the same moment the map is telling them
+blue means *water*.
+
+The interface is light because the artifact that leaves it is a printed,
+signed certificate. What you sign is now what you saw.
+
+### Type is self-hosted
+
+Geist and Geist Mono, `assets/fonts/*.woff2`, about 84 KB. A demo that loses
+the network must not also lose its typography, and a typeface swapping in two
+seconds after the map is the most obvious tell there is that a page was thrown
+together. `server.py` declares the `font/woff2` type because `mimetypes` does
+not know it on every Python build and Chrome refuses a font served as
+`application/octet-stream`.
+
+Numbers are monospaced and tabular everywhere, prose is not. A column of
+distances that does not align on the decimal cannot be scanned.
 
 ---
 
@@ -317,10 +475,12 @@ for any individual flag rather than a confidence score.
 ```
 gee_blue_grid.js   extraction — the only thing that touches Earth Engine
 index.html         the whole app, single file, no build step
+assets/fonts/      Geist and Geist Mono, self-hosted so a demo can go offline
 server.py          serves the app and holds the API key; /ask proxies to Claude
 fetch_layers.sh    downloads exported PNGs into data/<city>/
 hotspots.py        finds where encroachment concentrates, prints coordinates
-validate.py        scores MNDWI against the JRC reference on held-out blocks
+validate.py        scores MNDWI against the JRC reference on held-out blocks;
+                   --routing scores the downstream trace against the flow-path mask
 verify_encoding.py proves the byte-packed layers decoded losslessly
 build_corpus.py    compiles corpus/**/*.md into data/corpus.json
 check_corpus.py    checks the corpus against the code it describes

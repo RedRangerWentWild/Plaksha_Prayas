@@ -19,7 +19,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-LAYERS = ('history', 'hydro')           # measurement layers; buffers keeps alpha
+LAYERS = ('history', 'hydro', 'routing')  # measurement layers; buffers keeps alpha
 
 city = sys.argv[1] if len(sys.argv) > 1 else 'bengaluru'
 for name in LAYERS:

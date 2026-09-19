@@ -1,16 +1,13 @@
-PNG rgb2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/494e20e28f84e81a253de1dd6c3d3bfb-a3a70ef812861d3d2f5facbba4b534b0:getPixels
-PNG rgb2025: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/bd532a5feeab612870a24d676790aed0-879c85ed9c05e37216c43dedffa338f3:getPixels
-PNG historic: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/b88fea7f19840c9dcaec293e58810626-60f09174b7c6faff3bbdc2b77a603646:getPixels
-PNG present: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/10eb0c940311ac686c0591e03aedaade-98a6d0d7bfa37eda1369fa33fa6c6b08:getPixels
-PNG encroached: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/51fb53f4230aa780c8bf1153be0df53c-30bbdc37610496cf853bec62b0c6b1d7:getPixels
-PNG flowpath: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/2d8d35bc9880b1a81d2863e5e2893d6d-c6cc9a55d1f948d612a4bbfb2c144f4a:getPixels
-PNG floodprone: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/49816961781324255b085273ada7e9ae-9533f63dab6ecce0de9a1a034dead28c:getPixels
-PNG ref2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/76621ee1f7ed397df85d28de35e7b594-46cebd9c9147ef55a9d130a9fd7bfb2a:getPixels
-PNG mndwi2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/a54790f4508ce75f997984d33bfd6c3d-0ded2eafd735ada6ac56125f7927c6ff:getPixels
-PNG buffers: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/9bdb57d0c3874b40e4be3b2c36fc8298-3a98d4f127c4c05aadb0b37cb714311e:getPixels
-PNG history: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/58beb6d0a64babe1495e08522ab28d1d-eace98509e86ed308acba8615b6d37e7:getPixels
-# hydro.png is new. Re-run gee_blue_grid.js and paste its line here, then
-# ./fetch_layers.sh bengaluru. Until it lands the plot check works as before
-# and every answer says upstream catchment is unavailable rather than
-# guessing at it.
-# PNG hydro: <paste the console link here>
+PNG rgb2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/494e20e28f84e81a253de1dd6c3d3bfb-b29ae6dd4fe26e4f79b1dff0b34aa902:getPixels
+PNG rgb2025: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/e0048613eb6289b1c1950fdb791e42e5-5f2a8c4f5b79086ac0a61eac9a2ba0fe:getPixels
+PNG historic: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/b88fea7f19840c9dcaec293e58810626-a6422b1af1ade1529f015a8736793f59:getPixels
+PNG present: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/10eb0c940311ac686c0591e03aedaade-c12ca98f1ac12ab8ca2400d145aeb28f:getPixels
+PNG encroached: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/350dd1a779c0b9daba2352f28c919ac3-5fa02eef5fee204a281ab63436d7b8e3:getPixels
+PNG flowpath: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/2d8d35bc9880b1a81d2863e5e2893d6d-9b2d0fe352d1eeb86ee4f63d328ab526:getPixels
+PNG floodprone: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/49816961781324255b085273ada7e9ae-0abb33c85e71e3240734145f4c45414c:getPixels
+PNG ref2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/76621ee1f7ed397df85d28de35e7b594-0845162cffd89e823fdf4f08c1c4469b:getPixels
+PNG mndwi2005: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/a54790f4508ce75f997984d33bfd6c3d-da137a0ee09d3ce278919fdd7c579f79:getPixels
+PNG buffers: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/7d1639e362e8198d22b50e1019b6c073-811a430c32f61e631b1552a3d6da4605:getPixels
+PNG history: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/4452a8a32f9c66301d2cd17ad9a01ae1-5f9639631b835aaf2b3a383d84bd952f:getPixels
+PNG hydro: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/367549cc430d15d78312188c2f201a7c-20aa2b3e366235b66e9ea6d333e418c8:getPixels
+PNG routing: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/7947b5a767ef6a6ee5ddf40b1121fe35-a3db269009f9fd19788ae83f70ff9091:getPixels

@@ -19,6 +19,14 @@ from PIL import Image
 city = sys.argv[1] if len(sys.argv) > 1 else 'bengaluru'
 fails = []
 
+# Must match the CITIES table in index.html and the BOUNDS table in
+# validate.py. Only the routing checks need it: they walk MERIT's own grid,
+# which is defined in degrees, and the pixel grid alone cannot locate it.
+BOUNDS = {
+    'bengaluru': (77.63, 12.90, 77.75, 12.97),
+    'chennai':   (80.180, 12.900, 80.280, 12.985),
+}
+
 
 def load(name, required=True):
     try:
@@ -38,6 +46,7 @@ def check(ok, msg):
 buf = load('buffers')
 hist = load('history', required=False)
 hyd = load('hydro', required=False)
+rtg = load('routing', required=False)
 present, historic, flowpath = load('present'), load('historic'), load('flowpath')
 
 print(f"\nbuffers.png {buf.shape[1]}x{buf.shape[0]}"
@@ -51,7 +60,8 @@ print(f"\nbuffers.png {buf.shape[1]}x{buf.shape[0]}"
 ref_shape = historic.shape[:2]
 for nm, im in [('buffers', buf), ('present', present), ('flowpath', flowpath)] + \
               ([('history', hist)] if hist is not None else []) + \
-              ([('hydro', hyd)] if hyd is not None else []):
+              ([('hydro', hyd)] if hyd is not None else []) + \
+              ([('routing', rtg)] if rtg is not None else []):
     check(im.shape[:2] == ref_shape,
           f'{nm} is {im.shape[1]}x{im.shape[0]}, historic is {ref_shape[1]}x{ref_shape[0]}')
 if fails:
@@ -70,7 +80,8 @@ if fails:
 # whose interior carries fractional alpha is a different thing entirely.
 for nm, im in [('buffers', buf)] \
               + ([('history', hist)] if hist is not None else []) \
-              + ([('hydro', hyd)] if hyd is not None else []):
+              + ([('hydro', hyd)] if hyd is not None else []) \
+              + ([('routing', rtg)] if rtg is not None else []):
     a = im[..., 3]
     fr = (a > 0) & (a < 255)
     share = float(fr.mean())
@@ -202,6 +213,153 @@ else:
     check(hyd[..., 2][inside].min() == 0,
           f'B  elevation above the study-area minimum starts at '
           f'{hyd[..., 2][inside].min()} (must be 0 somewhere)')
+
+# ---------------------------------------------------------------------------
+# ROUTING - the flow-direction field
+# ---------------------------------------------------------------------------
+# Rule 1 above does not apply here and must not be reached for. A D8 direction
+# channel legally holds eleven values, so "more than 30 distinct codes or it is
+# a mask" would fail a perfectly good layer, and passing it would prove nothing
+# anyway: a direction field can be entirely plausible and entirely wrong.
+#
+# What catches a wrong one is physics. Water runs downhill into larger and
+# larger catchments, so upstream area along a correct route is non-decreasing.
+# A transposed, flipped or averaged direction field breaks that immediately,
+# while still producing routes that look like routes.
+if rtg is not None and city not in BOUNDS:
+    print(f'routing.png present but {city!r} is not in the BOUNDS table — '
+          'add it to run the flow-direction checks.\n')
+elif rtg is None:
+    print('routing.png ABSENT - skipping the flow-direction checks. Run '
+          'section 14 of gee_blue_grid.js to enable them.\n')
+else:
+    print(f'\nrouting.png {rtg.shape[1]}x{rtg.shape[0]}')
+    d8 = rtg[..., 0]
+
+    # 4. Legality. Every code inside the study area is one this remap emits.
+    #    This is what proves the 90 m -> 30 m reprojection stayed nearest: an
+    #    average of two directions lands between the codes, not on one.
+    codes = np.unique(d8[inside])
+    illegal = [int(c) for c in codes if c > 10]
+    check(not illegal,
+          f'R  every direction code is in 0..10 '
+          f'({codes.size} distinct: {[int(c) for c in codes[:12]]})'
+          + ('' if not illegal else
+             f' - found {illegal[:6]}, which means the reprojection averaged '
+             f'directions instead of picking one'))
+
+    # The flow field must actually flow. All-nodata passes every other check
+    # below vacuously, because a trace of length zero never violates anything.
+    flowing = np.isin(d8[inside], [1, 2, 3, 4, 5, 6, 7, 8])
+    check(flowing.mean() > 0.5,
+          f'R  {100*flowing.mean():.1f}% of the study area carries a direction '
+          f'(the rest is mouth, depression or nodata)')
+
+    # Walk MERIT's own grid, not this export's pixel grid. MERIT Hydro is 3
+    # arc-seconds — exactly one 1200th of a degree — and the export is an
+    # arbitrary 2048 px stretched across the AOI, so a cell is about 14.15
+    # pixels and never a whole number of them. Stepping a rounded 14 px drifts
+    # off the cell grid within a few steps and starts revisiting cells the
+    # trace never actually entered, which reads as a loop that is not there.
+    # On the first real export that produced 201 false loops out of 400.
+    H, W = d8.shape
+    W_DEG, S_DEG, E_DEG, N_DEG = BOUNDS[city]
+    MERIT_DEG = 1.0 / 1200
+    DXY = {1: (1, 0), 2: (1, 1), 3: (0, 1), 4: (-1, 1),
+           5: (-1, 0), 6: (-1, -1), 7: (0, -1), 8: (1, -1)}
+    MAXSTEPS = 200
+
+    def to_px(ix, iy):
+        """MERIT cell index -> pixel in this export, via the cell centre.
+
+        Centre-registered: centres lie on integer multiples of 1/1200 of a
+        degree. Measured off the export, not assumed — the half-multiple
+        reading puts only 58% of sampled points back on their own code.
+        """
+        lon, lat = ix * MERIT_DEG, iy * MERIT_DEG
+        x = int(round((lon - W_DEG) / (E_DEG - W_DEG) * W))
+        y = int(round((N_DEG - lat) / (N_DEG - S_DEG) * H))
+        return x, y
+
+    def trace(x0, y0):
+        """Follow the field from one pixel. Returns (pixel path, how it ended)."""
+        lon = W_DEG + (x0 + 0.5) / W * (E_DEG - W_DEG)
+        lat = N_DEG - (y0 + 0.5) / H * (N_DEG - S_DEG)
+        ix, iy = int(round(lon / MERIT_DEG)), int(round(lat / MERIT_DEG))
+        seen, path = set(), []
+        for _ in range(MAXSTEPS):
+            if (ix, iy) in seen:
+                return path, 'loop'
+            seen.add((ix, iy))
+            x, y = to_px(ix, iy)
+            if not (0 <= x < W and 0 <= y < H) or not inside[y, x]:
+                return path, 'edge'
+            path.append((x, y))
+            c = int(d8[y, x])
+            if c == 9:
+                return path, 'mouth'
+            if c == 10:
+                return path, 'depression'
+            if c not in DXY:
+                return path, 'nodata'
+            dx, dy = DXY[c]
+            ix, iy = ix + dx, iy - dy      # y is southward, latitude is not
+        return path, 'capped'
+
+    rng = np.random.default_rng(0)
+    ys, xs = np.nonzero(inside & np.isin(d8, [1, 2, 3, 4, 5, 6, 7, 8]))
+    if xs.size == 0:
+        check(False, 'no pixel inside the study area carries a direction')
+    else:
+        pick = rng.choice(xs.size, size=min(400, xs.size), replace=False)
+        ends, paths = {}, []
+        for i in pick:
+            path, how = trace(int(xs[i]), int(ys[i]))
+            ends[how] = ends.get(how, 0) + 1
+            paths.append(path)
+
+        # 5. Termination. A route ends somewhere real, or the field cycles.
+        #    A visited-set catches the cycle here so the browser does not have
+        #    to discover it at a demo.
+        check(ends.get('loop', 0) == 0,
+              f'traces terminate without cycling '
+              f'({ends.get("loop", 0)} of {len(paths)} looped; '
+              + ', '.join(f'{k} {v}' for k, v in sorted(ends.items())) + ')')
+
+        # 6. The physical invariant. Upstream area is non-decreasing downstream.
+        #    One code of tolerance per step: the direction field is 90 m data on
+        #    a 30 m grid, so a step can land off-centre in the neighbouring cell
+        #    and read its edge rather than its middle.
+        if hyd is None:
+            print('  SKIP  hydro.png absent - cannot check upstream area along '
+                  'a route')
+        else:
+            upa = hyd[..., 0].astype(np.int16)
+            drops, steps, grew = 0, 0, 0
+            for path in paths:
+                if len(path) < 3:
+                    continue
+                v = [int(upa[y, x]) for x, y in path]
+                for a, b in zip(v, v[1:]):
+                    steps += 1
+                    if b < a - 1:
+                        drops += 1
+                if v[-1] > v[0]:
+                    grew += 1
+            if steps == 0:
+                check(False, 'every trace was too short to test for monotonicity')
+            else:
+                share = drops / steps
+                check(share < 0.05,
+                      f'upstream area is non-decreasing downstream '
+                      f'({100*share:.1f}% of {steps} steps fall by more than one '
+                      f'code)' + ('' if share < 0.05 else
+                      ' - the direction field is transposed, flipped or averaged'))
+                long_paths = [p for p in paths if len(p) >= 3]
+                frac = grew / max(1, len(long_paths))
+                check(frac > 0.8,
+                      f'traces end in a larger catchment than they started in '
+                      f'({100*frac:.0f}% of {len(long_paths)} traces)')
 
 print()
 if fails:

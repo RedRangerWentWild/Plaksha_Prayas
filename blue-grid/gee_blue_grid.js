@@ -466,6 +466,61 @@ print('PNG hydro:', hydro.visualize(BYTES_RGB).getThumbURL(THUMB));
 print('upa packing ceiling, km2:', UPA_CEIL);
 print('elevation datum, m above WGS84 ellipsoid:', elvMin);
 
+// ---------------------------------------------------------------------------
+// 14. ROUTING - which way the water leaves
+// ---------------------------------------------------------------------------
+// Section 13 says how much land drains THROUGH a point and how deep that point
+// sits. Neither says which way water leaves it, so "who pays if this is built
+// on" could be answered with a volume and never with a destination.
+//
+// That has to come from MERIT's own flow-direction band. It cannot be recovered
+// from anything already exported: hydro's blue channel is elevation above the
+// study-area minimum, quantised to 1 m over about 60 m of local relief, and a
+// 90 m step across this catchment falls roughly 0.05-0.2 m. Descending it would
+// be descending the quantisation, which produces long flats, arbitrary jumps
+// and closed loops that look exactly like routes.
+//
+// R = D8 direction, REMAPPED off MERIT's native powers of two
+// G = reserved, 0
+// B = reserved, 0
+//
+// MERIT stores directions as 1, 2, 4 ... 128 with 0 for a river mouth, -1 for
+// an inland depression and -9 for undefined. Two problems with shipping that
+// through a byte: the sentinels are negative, and a legality check against a
+// sparse power-of-two set is awkward. Remapped to a compact index, every legal
+// value is in {0..10} and verify_encoding can assert exactly that - which is
+// how a resampling that silently averaged two directions gets caught.
+//
+// The remap runs on the NATIVE 90 m grid, before reprojection, so no resampling
+// step ever sees a power of two. Earth Engine resamples nearest by default;
+// the legality check is what proves it did.
+//
+// Nothing is packed into G and B. MERIT's river width is 90 m data that is very
+// likely all zero across a catchment of tank-fed drains, and a channel spent on
+// a speculative band is a channel that cannot be reclaimed later.
+var dirCode = merit.select('dir')
+  .remap([1, 2, 4, 8, 16, 32, 64, 128,  0, -1, -9],
+         [1, 2, 3, 4,  5,  6,  7,   8,  9, 10,  0], 0)
+  .toUint8().rename('r');
+
+// The reserved channels are derived from dirCode rather than written as
+// ee.Image(0). A bare constant carries EE's default global projection at one
+// degree, so the three bands would enter visualize() on different grids and be
+// resampled separately. Multiplying the direction band by zero keeps the
+// footprint, the projection and the mask identical across all three.
+var zero = dirCode.multiply(0).toUint8();
+
+var routing = dirCode
+  .addBands(zero.rename('g'))
+  .addBands(zero.rename('b'))
+  .unmask(0)
+  .reproject(OUTPROJ)
+  .clip(AOI);
+
+print('PNG routing:', routing.visualize(BYTES_RGB).getThumbURL(THUMB));
+print('routing codes: 0 nodata, 1 E, 2 SE, 3 S, 4 SW, 5 W, 6 NW, 7 N, 8 NE, '
+      + '9 mouth, 10 depression');
+
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.
 Export.table.toDrive({

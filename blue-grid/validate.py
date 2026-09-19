@@ -33,6 +33,9 @@ ap.add_argument('--seed', type=int, default=0)
 ap.add_argument('--seeds', type=int, default=1,
                 help='re-run over this many held-out draws and report the spread')
 ap.add_argument('--bounds', help='west,south,east,north if the city is not in the table')
+ap.add_argument('--routing', action='store_true',
+                help='score the downstream trace against the flow-path mask '
+                     'instead of scoring MNDWI against JRC')
 a = ap.parse_args()
 
 W, S, E, N = (tuple(float(x) for x in a.bounds.split(','))
@@ -44,6 +47,143 @@ def load(name):
     except FileNotFoundError:
         sys.exit(f'missing data/{a.city}/{name}.png — add the benchmark exports from '
                  f'gee_blue_grid.js to urls/{a.city}.txt and re-run ./fetch_layers.sh {a.city}')
+
+
+def routing_mode():
+    """Score the downstream trace against an independently derived flow path.
+
+    What this measures, precisely: how often cells the D8 trace walks through
+    coincide with the flow-path mask, which is built from a different code path
+    (upa > 2 km2 AND hnd < 2 m, thresholded in Earth Engine) over the same two
+    bands. Two methods agreeing is worth something. One method agreeing with
+    itself is not, and that is the trap here — both come from MERIT Hydro, so
+    this is cross-method agreement within one source, not independent
+    corroboration.
+
+    What it does NOT measure: whether water actually goes where the trace says.
+    There is no surveyed drain network for this catchment, so no such number
+    exists, and the figure below is not an accuracy. The baseline is printed
+    beside it for exactly that reason: agreement means nothing until you know
+    what agreement a random walk would have scored.
+    """
+    rtg = load('routing')
+    hyd, flow, buf = load('hydro'), load('flowpath'), load('buffers')
+    if not (rtg.size == hyd.size == flow.size == buf.size):
+        sys.exit(f'size mismatch: routing {rtg.size} hydro {hyd.size} '
+                 f'flowpath {flow.size} buffers {buf.size}')
+
+    d8 = np.asarray(rtg)[..., 0]
+    upa = np.asarray(hyd)[..., 0].astype(np.int16)
+    onflow = np.asarray(flow)[..., 3] > 128
+    inside = np.asarray(buf)[..., 3] == 255
+    H, W_ = d8.shape
+
+    # Walk MERIT's own grid, as verify_encoding.py and the client both do. The
+    # export is an arbitrary 2048 px across the AOI, so a 3 arc-second cell is
+    # about 14.15 px and never a whole number of them; stepping a rounded 14
+    # drifts off the grid and revisits cells the trace never entered. The grid
+    # is centre-registered — centres on integer multiples of 1/1200 of a
+    # degree — which was measured off the export rather than assumed.
+    MERIT_DEG = 1.0 / 1200
+    DXY = {1: (1, 0), 2: (1, 1), 3: (0, 1), 4: (-1, 1),
+           5: (-1, 0), 6: (-1, -1), 7: (0, -1), 8: (1, -1)}
+
+    def to_px(ix, iy):
+        lon, lat = ix * MERIT_DEG, iy * MERIT_DEG
+        return (int(round((lon - W) / (E - W) * W_)),
+                int(round((N - lat) / (N - S) * H)))
+
+    def walk(x0, y0):
+        lon = W + (x0 + 0.5) / W_ * (E - W)
+        lat = N - (y0 + 0.5) / H * (N - S)
+        ix, iy = int(round(lon / MERIT_DEG)), int(round(lat / MERIT_DEG))
+        seen, out = set(), []
+        for _ in range(200):
+            if (ix, iy) in seen:
+                break
+            seen.add((ix, iy))
+            x, y = to_px(ix, iy)
+            if not (0 <= x < W_ and 0 <= y < H) or not inside[y, x]:
+                break
+            out.append((x, y))
+            c = int(d8[y, x])
+            if c not in DXY:
+                break
+            dx, dy = DXY[c]
+            ix, iy = ix + dx, iy - dy      # y is southward, latitude is not
+        return out
+
+    GX, GY = (int(v) for v in a.blocks.lower().split('x'))
+    ys_ix = (np.arange(H) * GY) // H
+    xs_ix = (np.arange(W_) * GX) // W_
+    block_id = ys_ix[:, None] * GX + xs_ix[None, :]
+
+    seed_ys, seed_xs = np.nonzero(inside & np.isin(d8, list(DXY)))
+    if seed_xs.size == 0:
+        sys.exit('no pixel inside the study area carries a direction — check '
+                 'section 14 of gee_blue_grid.js')
+
+    base = float(onflow[inside].mean())
+    print(f'\nrouting agreement — {a.city}')
+    print(f'  traced route   MERIT Hydro flow direction, 3 arc-second cells')
+    print(f'  compared with  flow-path mask (upa > 2 km2 and hnd < 2 m)')
+    print(f'  blocks         {GX}x{GY} contiguous tiles\n')
+
+    per_seed = []
+    for sd in range(max(1, a.seeds)):
+        rng = np.random.default_rng(sd)
+        pick = rng.choice(seed_xs.size, size=min(1500, seed_xs.size), replace=False)
+        hits = np.zeros(GX * GY, np.int64)
+        tot = np.zeros(GX * GY, np.int64)
+        grew = []
+        for i in pick:
+            path = walk(int(seed_xs[i]), int(seed_ys[i]))
+            for (x, y) in path:
+                b = block_id[y, x]
+                tot[b] += 1
+                hits[b] += bool(onflow[y, x])
+            # Upstream area at the end of a route against its start. Water runs
+            # into larger catchments, so a direction field that is right sends
+            # routes up this ratio and one that is transposed does not. It is
+            # reported as a share rather than a pass, because a handful of
+            # routes starting on a ridge legitimately end up going nowhere.
+            if len(path) >= 3:
+                grew.append(int(upa[path[-1][1], path[-1][0]])
+                            >= int(upa[path[0][1], path[0][0]]))
+        live = tot >= 100
+        if not live.any():
+            continue
+        frac = hits[live] / tot[live]
+        per_seed.append((float(np.median(frac)), float(frac.min()),
+                         float(frac.max()), int(live.sum()), int(tot.sum())))
+        print(f'    seed {sd:<3} per-block agreement median {np.median(frac):.3f}'
+              f'   range {frac.min():.3f}-{frac.max():.3f}'
+              f'   ({int(live.sum())} blocks, {int(tot.sum())} traced cells)'
+              + (f'   {100*np.mean(grew):.0f}% end in a catchment no smaller '
+                 f'than they started in' if grew else ''))
+
+    if per_seed:
+        meds = [p[0] for p in per_seed]
+        print(f'\n    across {len(per_seed)} draws: median agreement '
+              f'{min(meds):.3f} to {max(meds):.3f}')
+    print(f'    baseline: {base:.3f} of all study-area cells lie on the mask')
+    if per_seed and max(meds) <= base:
+        print('\n    The routes do no better than picking cells at random.')
+        print('    That is a finding about the direction field, not a score.')
+
+    print('\n  This is agreement between two readings of MERIT Hydro, not')
+    print('  corroboration by an independent source, and it is not an accuracy.')
+    print('  Blocks are contiguous tiles, and a downstream cell is not')
+    print('  independent of the upstream cell that routed into it, so even the')
+    print('  block spread above is the optimistic version.')
+    print('\n  No surveyed drain network exists for this catchment. Anyone')
+    print('  reporting how often these routes are right has invented it.\n')
+
+
+if a.routing:
+    routing_mode()
+    sys.exit(0)
+
 
 ref_im, mn_im = load('ref2005'), load('mndwi2005')
 if ref_im.size != mn_im.size:

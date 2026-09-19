@@ -8,173 +8,239 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <style>
 /* ===========================================================================
-   DESIGN SYSTEM
+   VANISHED BLUE GRID — DESIGN SYSTEM
    ---------------------------------------------------------------------------
-   The old skin was five translucent cards floating on satellite imagery with
-   22 px of backdrop blur behind every one of them. Over a busy raster that
-   reads as mush: the text sat at roughly 3:1 against whatever pixels happened
-   to be underneath, and every panel carried the same weight, so the screening
-   verdict looked exactly like the plot-frontage field.
+   The skin before this one was a dark instrument: near-black panels, one blue
+   accent, everything the same weight. It read as generic because every choice
+   in it was a default — system font, system blue, system grey.
 
-   This is an instrument, not a glass dashboard. Three rules follow from that:
+   This one is built on four commitments.
 
-   1. SURFACES ARE OPAQUE. Blur is kept only where a panel genuinely overlaps
-      the map, and even there the surface is 94% opaque. Contrast is a
-      legibility requirement for a document that gets printed and signed, not
-      a style choice.
-   2. ONE THING IS LOUD PER PANEL. The verdict, then the two or three
-      measurements that produced it. Everything else is a hairline row that
-      the eye can skip. A panel where everything is 12 px has no hierarchy.
-   3. NUMBERS ARE TABULAR AND MONOSPACED, PROSE IS NOT. A column of distances
-      must align on the decimal or it cannot be scanned.
+   1. THE CHROME IS MONOCHROME. Graphite, paper, hairlines. Every colour on
+      screen belongs to the data or to a verdict. An officer scanning this
+      should be able to say what each colour means, and there are seven of
+      them, not twenty.
+   2. PANELS FLOAT ON PAPER. Rounded, near-white, softly shadowed, lifted off
+      a full-bleed map. Nothing is welded to an edge; the map is continuous
+      underneath, so the reader always knows they are looking at ground.
+   3. PAST AND PRESENT ARE DIFFERENT COLOURS, NOT DIFFERENT BLUES. Water that
+      survived is cyan. Water that was lost is amber, and it carries its own
+      1984–99 shoreline as a drawn line. The old palette put #1f6feb next to
+      #58a6ff and expected a viewer to tell two decades apart by saturation.
+   4. NUMBERS ARE MONOSPACED AND TABULAR, PROSE IS NOT. A column of distances
+      that does not align on the decimal cannot be scanned, and this document
+      gets printed and signed.
    =========================================================================== */
+
+/* Self-hosted. A demo that loses the network must not also lose its
+   typeface — and a font swapping in two seconds after the map is the single
+   most obvious tell that a page was thrown together. */
+@font-face{font-family:Geist;font-style:normal;font-weight:100 900;font-display:swap;
+  src:url(assets/fonts/geist-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,
+    U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Geist;font-style:normal;font-weight:100 900;font-display:swap;
+  src:url(assets/fonts/geist-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,
+    U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,
+    U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Geist Mono';font-style:normal;font-weight:100 900;font-display:swap;
+  src:url(assets/fonts/geist-mono-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,
+    U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Geist Mono';font-style:normal;font-weight:100 900;font-display:swap;
+  src:url(assets/fonts/geist-mono-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,
+    U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,
+    U+2113,U+2C60-2C7F,U+A720-A7FF}
+
 :root{
-  /* Neutral near-black, not blue-tinted. The map supplies all the colour this
-     interface needs; the chrome around it should recede. */
-  --ink:#07080b;
-  --surface:#0e1116;         /* panels */
-  --raised:#161a22;          /* controls sitting on panels */
-  --sunken:#0a0c11;          /* wells, inputs */
+  /* ---- paper ---------------------------------------------------------- */
+  --ground:#e7e9ee;          /* behind everything; seen at the page edges */
+  --card:#ffffff;
+  --raised:#f2f4f7;          /* controls sitting on a card */
+  --sunken:#f6f7f9;          /* wells, inputs, table stripes */
+  --hover:#eceef2;
 
-  --line:rgba(255,255,255,.075);
-  --line-hot:rgba(255,255,255,.16);
-  --line-bright:rgba(255,255,255,.28);
+  --line:rgba(13,17,28,.08);
+  --line-hot:rgba(13,17,28,.15);
+  --line-bright:rgba(13,17,28,.26);
 
-  --text:#eef1f6;
-  --dim:#939cae;
-  --faint:#5d6676;
+  /* ---- ink ------------------------------------------------------------ */
+  --ink:#0b0e14;
+  --text:#171b23;
+  --dim:#5b6373;
+  --faint:#8b93a3;
 
-  /* One interactive accent. Everything clickable is this colour; nothing that
-     is not clickable is. */
-  --accent:#4d9fff;
-  --accent-dim:rgba(77,159,255,.14);
-  --accent-line:rgba(77,159,255,.40);
+  /* The interactive accent is graphite, not a hue. A government screening
+     tool that paints its buttons blue is telling the reader that blue means
+     "clickable" at the same time the map is telling them blue means "water". */
+  --act:#141922;
+  --act-hi:#242b38;
+  --act-ink:#ffffff;
 
-  /* Verdict semantics. Deliberately distinct from the map palette below —
-     a REJECT badge and the red encroachment raster must not read as the same
-     object. The badge also carries a left rule and a tint, so the two are
-     separated by structure and not by hue alone. */
-  --v-reject:#ff5f57;
-  --v-refer:#b06bff;
-  --v-conditions:#ffb224;
-  --v-clear:#35d07f;
+  /* One hue for focus and for links, used nowhere else. */
+  --focus:#0e9cbf;
+  --focus-ring:rgba(14,156,191,.22);
 
-  /* Map layer palette — mirrors PALETTE in the script, which mirrors the
-     colours gee_blue_grid.js renders the PNGs with. */
-  --lyr-historic:#1f6feb;
-  --lyr-present:#58a6ff;
-  --lyr-encroached:#f85149;
-  --lyr-flowpath:#d29922;
-  --lyr-floodprone:#bc8cff;
+  /* ---- verdicts -------------------------------------------------------- */
+  --v-reject:#c8342a;    --v-reject-bg:#fdf1f0;   --v-reject-line:#f0c4c0;
+  --v-refer:#6d28d9;     --v-refer-bg:#f5f1fe;    --v-refer-line:#d9caf7;
+  --v-conditions:#a5600b;--v-conditions-bg:#fdf5e8;--v-conditions-line:#f0dcb6;
+  --v-clear:#0a7a52;     --v-clear-bg:#edf8f3;    --v-clear-line:#bde3d3;
 
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  /* ---- the map palette --------------------------------------------------
+     Mirrored by PALETTE in the script. These are the colours the rasters are
+     RE-TINTED to in the browser; gee_blue_grid.js still exports its own, and
+     recolourLayer() overwrites them on load, so the two can disagree without
+     the legend lying. The important pairing is the first two: water that
+     survived against water that did not, in two different hue families. */
+  --lyr-present:#0e9cbf;     /* water 2000–21 — alive, cool */
+  --lyr-historic:#d0862b;    /* water 1984–99 — lost, warm */
+  --lyr-encroached:#e0392e;  /* built on former water */
+  --lyr-flowpath:#3b3f9e;    /* drainage line — dark, thin, a channel */
+  --lyr-floodprone:#a78bfa;  /* low ground — pale, large, a wash */
 
-  --r-lg:14px; --r-md:10px; --r-sm:7px;
-  --shadow:0 20px 60px -12px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.4);
+  --mono:'Geist Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sans:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;
 
-  --topbar-h:54px;
-  --dock-gap:16px;
+  --r-xl:18px; --r-lg:14px; --r-md:10px; --r-sm:8px; --r-xs:6px;
+
+  /* Three shadow depths, layered rather than single-blur: a tight contact
+     shadow for the edge, a wide ambient one for the lift. A single large
+     blur is what makes a light UI look like a mockup. */
+  --sh-1:0 1px 2px rgba(13,17,28,.05), 0 1px 1px rgba(13,17,28,.03);
+  --sh-2:0 1px 2px rgba(13,17,28,.05), 0 6px 14px -6px rgba(13,17,28,.10);
+  --sh-3:0 1px 2px rgba(13,17,28,.06), 0 10px 26px -8px rgba(13,17,28,.16),
+         0 28px 56px -28px rgba(13,17,28,.14);
+
+  --pad:12px;                /* the gutter every floating thing keeps */
+  --topbar-h:56px;
+  --dock-gap:12px;
   /* The space the dock may occupy, as insets from each edge. Updated when the
      queue collapses so the dock reclaims the room rather than staying offset
      against a rail that is no longer there. */
-  --rail-l:326px;
-  --rail-r:368px;
+  --rail-l:324px;
+  --rail-r:364px;
 }
+
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:var(--ink);color:var(--text);font-family:var(--sans);
-  font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility}
-#map{position:absolute;inset:0}
-.maplibregl-ctrl-attrib{font-size:9px!important;background:rgba(7,8,11,.82)!important}
-.maplibregl-ctrl-attrib a{color:var(--faint)!important}
-.maplibregl-ctrl-group{background:var(--surface)!important;border:1px solid var(--line)!important;
-  box-shadow:none!important}
+html,body{height:100%;background:var(--ground);color:var(--text);
+  font-family:var(--sans);font-size:14px;overflow:hidden;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  font-feature-settings:'cv11' 1}
+#map{position:absolute;inset:0;background:var(--ground)}
+::selection{background:rgba(14,156,191,.2)}
+
+/* ---- maplibre furniture, relit ---- */
+.maplibregl-ctrl-attrib{font:400 9px/1.5 var(--sans)!important;
+  background:rgba(255,255,255,.78)!important;backdrop-filter:blur(8px);
+  border-radius:6px 0 0 0!important;color:var(--faint)!important}
+.maplibregl-ctrl-attrib a{color:var(--dim)!important}
+.maplibregl-ctrl-group{background:rgba(255,255,255,.92)!important;
+  backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);
+  border:1px solid var(--line)!important;border-radius:var(--r-md)!important;
+  box-shadow:var(--sh-2)!important;overflow:hidden}
 .maplibregl-ctrl-group button+button{border-top:1px solid var(--line)!important}
-.maplibregl-ctrl-group button span{filter:invert(1) opacity(.7)}
-/* The zoom control sits above the dock rather than beside it. */
-.maplibregl-ctrl-bottom-right{bottom:112px!important}
+.maplibregl-ctrl-group button{width:32px!important;height:32px!important}
+.maplibregl-ctrl-group button span{opacity:.62}
+/* The zoom control stacks above the basemap switch, which sits above the dock. */
+.maplibregl-ctrl-bottom-right{bottom:96px!important;right:2px!important}
 
-::selection{background:rgba(77,159,255,.3)}
-
-/* ---------- surfaces ----------
-   .panel is the single surface primitive. The inset highlight along the top
-   edge is what makes it read as a machined object rather than a rectangle:
-   one hairline of light where a real bevel would catch it. */
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
-  box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.045)}
-.panel.over-map{background:rgba(14,17,22,.94);
-  backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}
+/* ===========================================================================
+   SURFACES
+   .panel is the single surface primitive. Slightly translucent with a real
+   blur behind it: enough that the map keeps moving underneath and the panel
+   reads as floating, not enough to cost a single point of text contrast.
+   =========================================================================== */
+.panel{background:rgba(255,255,255,.93);border:1px solid var(--line);
+  border-radius:var(--r-lg);box-shadow:var(--sh-3);
+  backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5)}
+.panel.flat{box-shadow:var(--sh-1)}
 
 /* Section label. One style, used in every panel, so a heading always means
    the same thing. */
-.lbl{font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+.lbl{font:600 9.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;
   color:var(--faint)}
 
-/* ---------- scrollbars ---------- */
+/* ---- scrollbars ---- */
 .scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line-hot) transparent}
-.scroll::-webkit-scrollbar{width:6px;height:6px}
+.scroll::-webkit-scrollbar{width:7px;height:7px}
 .scroll::-webkit-scrollbar-track{background:transparent}
-.scroll::-webkit-scrollbar-thumb{background:var(--line-hot);border-radius:3px}
-.scroll::-webkit-scrollbar-thumb:hover{background:var(--line-bright)}
+.scroll::-webkit-scrollbar-thumb{background:var(--line-hot);border-radius:4px;
+  border:2px solid transparent;background-clip:content-box}
+.scroll::-webkit-scrollbar-thumb:hover{background:var(--line-bright);background-clip:content-box}
 
 /* ===========================================================================
    TOP BAR
-   Identity, place, mode, and the two global actions. Buffer configuration used
-   to live here too, which was wrong: it is an input to one specific screening
-   decision, so it now sits in the inspector beside the decision it changes.
+   A floating card, not a welded bar. The map runs underneath it to the top of
+   the window, which is what keeps the whole thing reading as one continuous
+   piece of ground with instruments laid on it.
    =========================================================================== */
-#top{position:absolute;top:0;left:0;right:0;height:var(--topbar-h);z-index:30;
-  display:flex;align-items:center;gap:14px;padding:0 14px;
-  background:rgba(7,8,11,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-  border-bottom:1px solid var(--line)}
+#top{position:absolute;top:var(--pad);left:var(--pad);right:var(--pad);
+  height:var(--topbar-h);z-index:30;display:flex;align-items:center;gap:10px;
+  padding:0 10px 0 14px;border-radius:var(--r-lg)}
 
-.brand{display:flex;align-items:center;gap:9px;flex:none;user-select:none}
-.brand .mark{width:22px;height:22px;flex:none;position:relative}
-.brand b{font:700 13px/1 var(--sans);letter-spacing:-.01em;white-space:nowrap}
-.brand em{font-style:normal;font:600 8.5px/1 var(--mono);letter-spacing:.18em;
-  color:var(--v-reject);border:1px solid rgba(255,95,87,.35);
-  padding:3px 5px;border-radius:4px;background:rgba(255,95,87,.08)}
+.brand{display:flex;align-items:center;gap:10px;flex:none;user-select:none}
+.brand .mark{width:26px;height:26px;flex:none;display:grid;place-items:center;
+  border-radius:8px;background:var(--act);box-shadow:var(--sh-1)}
+.brand .txt{display:flex;flex-direction:column;gap:2px;line-height:1}
+.brand b{font:650 13.5px/1 var(--sans);letter-spacing:-.018em;white-space:nowrap;
+  color:var(--ink)}
+.brand i{font-style:normal;font:500 9px/1 var(--mono);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);white-space:nowrap}
 
-.vr{width:1px;height:22px;background:var(--line);flex:none}
+.vr{width:1px;height:24px;background:var(--line);flex:none;margin:0 2px}
 
 /* Native select, restyled. A custom dropdown would be more controllable and
    would also need keyboard handling, an outside-click listener and a focus
    trap — three things the platform already gets right. */
 select{appearance:none;-webkit-appearance:none;
-  background:var(--raised);color:var(--text);border:1px solid var(--line);
-  border-radius:var(--r-sm);padding:7px 26px 7px 10px;font:600 12px/1 var(--sans);
-  cursor:pointer;outline:none;transition:border-color .15s, background .15s;
-  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23939cae' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 9px center}
-select:hover{border-color:var(--line-hot)}
-select:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  background:var(--raised);color:var(--text);border:1px solid transparent;
+  border-radius:var(--r-sm);padding:8px 28px 8px 11px;font:550 12.5px/1 var(--sans);
+  cursor:pointer;outline:none;transition:background .15s,border-color .15s,box-shadow .15s;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b93a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center}
+select:hover{background-color:var(--hover)}
+select:focus-visible{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-ring)}
 
 /* Segmented control. The mode IS the product's posture, so it gets the centre
-   of the bar and a moving highlight rather than three separate buttons. */
-.segmented{display:flex;gap:2px;background:var(--sunken);border:1px solid var(--line);
-  border-radius:var(--r-md);padding:3px;margin:0 auto}
+   of the bar and a solid graphite pill rather than three separate buttons. */
+.segmented{display:flex;gap:2px;background:var(--raised);border-radius:var(--r-md);
+  padding:3px;margin:0 auto;position:relative}
 .segmented button{background:none;border:none;color:var(--dim);cursor:pointer;
-  font:600 12px/1 var(--sans);padding:8px 16px;border-radius:var(--r-sm);
-  display:flex;align-items:center;gap:7px;white-space:nowrap;
-  transition:color .16s, background .16s}
-.segmented button:hover{color:var(--text)}
-.segmented button.on{background:var(--raised);color:var(--text);
-  box-shadow:0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06)}
-.segmented button .sd{width:6px;height:6px;border-radius:50%;background:currentColor;
-  opacity:.35;transition:opacity .16s}
-.segmented button.on .sd{opacity:1;background:var(--accent)}
+  font:550 12.5px/1 var(--sans);padding:8px 15px;border-radius:7px;
+  display:flex;align-items:center;gap:7px;white-space:nowrap;position:relative;
+  transition:color .18s,background .18s}
+.segmented button:hover{color:var(--ink)}
+.segmented button.on{background:var(--act);color:var(--act-ink);
+  box-shadow:0 1px 2px rgba(13,17,28,.2),0 2px 6px -2px rgba(13,17,28,.25)}
+.segmented button .sd{width:5px;height:5px;border-radius:50%;background:currentColor;
+  opacity:.3;transition:opacity .18s}
+.segmented button.on .sd{opacity:1}
 
-.btn{display:inline-flex;align-items:center;gap:7px;background:var(--raised);
-  border:1px solid var(--line);color:var(--dim);border-radius:var(--r-sm);
-  padding:8px 12px;font:600 11.5px/1 var(--sans);cursor:pointer;white-space:nowrap;
-  transition:color .15s, border-color .15s, background .15s}
-.btn:hover{color:var(--text);border-color:var(--line-hot);background:#1b2029}
-.btn:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
-.btn svg{flex:none;opacity:.8}
-.btn.primary{background:var(--accent-dim);border-color:var(--accent-line);color:#bcdcff}
-.btn.primary:hover{background:rgba(77,159,255,.22);color:#dbecff}
-.btn:disabled{opacity:.45;cursor:default;pointer-events:none}
+/* ---- buttons ---- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  background:var(--card);border:1px solid var(--line-hot);color:var(--text);
+  border-radius:var(--r-sm);padding:8px 12px;font:550 12px/1 var(--sans);
+  cursor:pointer;white-space:nowrap;box-shadow:var(--sh-1);
+  transition:background .15s,border-color .15s,box-shadow .15s,transform .12s}
+.btn:hover{background:var(--sunken);border-color:var(--line-bright)}
+.btn:active{transform:translateY(.5px)}
+.btn:focus-visible{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-ring)}
+.btn svg{flex:none;opacity:.7}
+.btn.primary{background:var(--act);border-color:var(--act);color:var(--act-ink);
+  box-shadow:0 1px 2px rgba(13,17,28,.24),0 4px 10px -4px rgba(13,17,28,.3)}
+.btn.primary:hover{background:var(--act-hi);border-color:var(--act-hi)}
+.btn.primary svg{opacity:.85}
+.btn.ghost{background:transparent;border-color:transparent;box-shadow:none;color:var(--dim)}
+.btn.ghost:hover{background:var(--raised);color:var(--ink)}
+.btn:disabled{opacity:.42;cursor:default;pointer-events:none}
+
+.iconbtn{background:none;border:none;color:var(--faint);cursor:pointer;padding:5px;
+  border-radius:var(--r-xs);display:grid;place-items:center;flex:none;
+  transition:color .15s,background .15s}
+.iconbtn:hover{color:var(--ink);background:var(--raised)}
 
 /* ===========================================================================
    LEFT — the queue
@@ -182,89 +248,95 @@ select:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accen
    where browsing is the point (timeline and downstream) and starts collapsed
    in screening, where the map click is the input.
    =========================================================================== */
-#left{position:absolute;left:14px;top:calc(var(--topbar-h) + 12px);width:296px;z-index:20;
-  max-height:calc(100vh - var(--topbar-h) - 150px);display:flex;flex-direction:column;
-  transition:transform .32s cubic-bezier(.32,.72,0,1), opacity .24s}
-#left.collapsed{transform:translateX(calc(-100% - 20px));opacity:0;pointer-events:none}
+/* The reserved space at the foot is not decoration: the map key sits in the
+   bottom-left corner and the zoom control in the bottom-right, and at 760 px
+   of viewport height a rail sized only against the header runs straight
+   through both of them. */
+#left{position:absolute;left:var(--pad);top:calc(var(--pad) + var(--topbar-h) + 10px);
+  width:300px;z-index:20;max-height:calc(100vh - var(--topbar-h) - 268px);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:transform .34s cubic-bezier(.32,.72,0,1),opacity .24s}
+#left.collapsed{transform:translateX(calc(-100% - 24px));opacity:0;pointer-events:none}
 
-#queueToggle{position:absolute;left:14px;top:calc(var(--topbar-h) + 12px);z-index:19;
-  opacity:0;pointer-events:none;transition:opacity .24s}
+#queueToggle{position:absolute;left:var(--pad);top:calc(var(--pad) + var(--topbar-h) + 10px);
+  z-index:19;opacity:0;pointer-events:none;transition:opacity .24s}
 #queueToggle.show{opacity:1;pointer-events:auto}
 
-.phead{display:flex;align-items:center;gap:8px;padding:13px 14px 11px;
+.phead{display:flex;align-items:center;gap:8px;padding:13px 14px 12px;
   border-bottom:1px solid var(--line);flex:none}
 .phead .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pill{font:600 9.5px/1 var(--mono);letter-spacing:.06em;color:var(--dim);
-  background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:4px 8px;
-  flex:none;font-variant-numeric:tabular-nums}
-.iconbtn{background:none;border:none;color:var(--faint);cursor:pointer;padding:3px;
-  border-radius:5px;display:grid;place-items:center;flex:none;transition:color .15s,background .15s}
-.iconbtn:hover{color:var(--text);background:var(--raised)}
+.pill{font:550 9.5px/1 var(--mono);letter-spacing:.04em;color:var(--dim);
+  background:var(--raised);border-radius:20px;padding:4px 8px;flex:none;
+  font-variant-numeric:tabular-nums}
 
 #list{padding:6px;max-height:100%}
-.item{display:flex;align-items:center;gap:10px;padding:9px 9px;border-radius:var(--r-sm);
+.item{display:flex;align-items:center;gap:10px;padding:9px;border-radius:var(--r-sm);
   cursor:pointer;border:1px solid transparent;transition:background .14s,border-color .14s}
-.item:hover{background:var(--raised);border-color:var(--line)}
-.item.on{background:var(--accent-dim);border-color:var(--accent-line)}
-.item .rank{font:600 10px/1 var(--mono);color:var(--faint);width:16px;flex:none;
+.item:hover{background:var(--sunken)}
+.item.on{background:var(--sunken);border-color:var(--line-hot);box-shadow:var(--sh-1)}
+.item .rank{font:550 10px/1 var(--mono);color:var(--faint);width:16px;flex:none;
   font-variant-numeric:tabular-nums;text-align:right}
-.item .dot{width:7px;height:7px;border-radius:2px;flex:none}
+.item .dot{width:8px;height:8px;border-radius:3px;flex:none;
+  box-shadow:0 0 0 2.5px rgba(255,255,255,.9)}
 .item .body{flex:1;min-width:0}
-.item .nm{font:600 12.5px/1.3 var(--sans);white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;display:block}
-.item .sub{font:400 10.5px/1.4 var(--mono);color:var(--faint);display:block;
+.item .nm{font:550 12.5px/1.35 var(--sans);color:var(--text);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;display:block;letter-spacing:-.005em}
+.item .sub{font:400 10.5px/1.45 var(--mono);color:var(--faint);display:block;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.item .sc{font:700 12px/1 var(--mono);color:var(--v-reject);flex:none;
+.item .sc{font:600 12px/1 var(--mono);color:var(--v-reject);flex:none;
   font-variant-numeric:tabular-nums}
-.empty{padding:16px 14px;font:400 11.5px/1.65 var(--sans);color:var(--faint)}
+.empty{padding:16px 14px;font:400 11.5px/1.7 var(--sans);color:var(--dim)}
+.empty code{font:500 10.5px/1 var(--mono);background:var(--raised);padding:2px 5px;
+  border-radius:4px;color:var(--text)}
 
 /* ===========================================================================
    RIGHT — the inspector
    One column, but a strict order: what was decided, what decided it, what else
-   was measured, what you can do about it. The old panel interleaved all four.
+   was measured, what you can do about it.
    =========================================================================== */
-#right{position:absolute;right:14px;top:calc(var(--topbar-h) + 12px);width:340px;z-index:20;
-  max-height:calc(100vh - var(--topbar-h) - 150px);display:flex;flex-direction:column;gap:11px;
-  overflow:visible}
-#rightScroll{display:flex;flex-direction:column;gap:11px;overflow-y:auto;min-height:0;
-  padding-right:2px}
+#right{position:absolute;right:var(--pad);top:calc(var(--pad) + var(--topbar-h) + 10px);
+  width:336px;z-index:20;max-height:calc(100vh - var(--topbar-h) - 190px);
+  display:flex;flex-direction:column;gap:10px;overflow:visible}
+#rightScroll{display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:0;
+  padding-right:3px;margin-right:-3px}
 
 /* ---- screening parameters ----
-   Moved out of the header. These two inputs change the verdict, so they belong
-   against the verdict where the officer can see what was applied. */
-#paramsBar{display:none;padding:12px 14px;gap:10px;flex-direction:column}
+   These two inputs change the verdict, so they belong against the verdict
+   where the officer can see what was applied. */
+#paramsBar{display:none;padding:13px 14px;gap:11px;flex-direction:column}
 #paramsBar.on{display:flex}
-/* Label above control, not beside it. Beside it, a 52 px gutter left the
-   select 265 px, and "State revision — 30 m lake buffer" does not fit in 265 px
-   — the officer saw a rule name cut off mid-word on the control that decides
-   the verdict. */
+/* Label above control, not beside it: "State revision — 30 m lake buffer"
+   does not fit in a 265 px gutter, and an officer must not see the name of the
+   rule that decides the verdict cut off mid-word. */
 .pfield{display:flex;flex-direction:column;gap:6px}
 .pfield select{width:100%;min-width:0;font-size:11.5px}
-.numin{display:flex;align-items:center;gap:0;background:var(--sunken);
-  border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;flex:1}
+.numin{display:flex;align-items:center;background:var(--raised);
+  border:1px solid transparent;border-radius:var(--r-sm);overflow:hidden;flex:1;
+  transition:border-color .15s,box-shadow .15s}
 .numin input{flex:1;min-width:0;background:none;border:none;color:var(--text);
-  font:600 12px/1 var(--mono);padding:8px 9px;outline:none;font-variant-numeric:tabular-nums;
-  -moz-appearance:textfield}
+  font:550 12px/1 var(--mono);padding:9px 10px;outline:none;
+  font-variant-numeric:tabular-nums;-moz-appearance:textfield}
 .numin input::-webkit-outer-spin-button,.numin input::-webkit-inner-spin-button{
   -webkit-appearance:none;margin:0}
-.numin span{font:600 10.5px/1 var(--mono);color:var(--faint);padding:0 10px 0 4px;flex:none}
-.numin:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.numin span{font:500 10.5px/1 var(--mono);color:var(--faint);padding:0 11px 0 4px;flex:none}
+.numin:focus-within{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-ring)}
 
 /* ---- the catchment ledger ---- */
 #statsCard{padding:14px}
-#statsCard .phead{padding:0 0 11px;margin-bottom:3px}
+#statsCard .phead{padding:0 0 11px;margin-bottom:2px}
 .metric{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   padding:8px 0;border-bottom:1px solid var(--line)}
 .metric:last-child{border-bottom:none}
 .metric .k{font:400 11.5px/1.45 var(--sans);color:var(--dim)}
-.metric .v{font:600 13.5px/1 var(--mono);font-variant-numeric:tabular-nums;
-  white-space:nowrap;flex:none}
-.metric.big{padding:11px 0}
-.metric.big .v{font-size:26px;font-weight:700;letter-spacing:-.025em}
-.v.red{color:var(--v-reject)} .v.blue{color:var(--lyr-present)} .v.violet{color:var(--lyr-floodprone)}
-.bar{height:3px;border-radius:2px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:12px}
-.bar i{display:block;height:100%;border-radius:2px;
-  background:linear-gradient(90deg,var(--v-reject),#ff9d6b);
+.metric .v{font:550 13px/1 var(--mono);font-variant-numeric:tabular-nums;
+  white-space:nowrap;flex:none;color:var(--text)}
+.metric.big{padding:12px 0 13px}
+.metric.big .v{font-size:27px;font-weight:650;letter-spacing:-.035em}
+.v.red{color:var(--v-reject)} .v.blue{color:var(--lyr-present)}
+.v.violet{color:#7c5cd6} .v.amber{color:#a5600b}
+.bar{height:4px;border-radius:3px;background:var(--raised);overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--lyr-historic),var(--lyr-encroached));
   transition:width 1.1s cubic-bezier(.22,1,.36,1)}
 
 /* ---- the verdict ----
@@ -274,189 +346,259 @@ select:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accen
 #verdict.on{display:block;animation:rise .38s cubic-bezier(.16,1,.3,1)}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-.vbanner{position:relative;padding:15px 16px 15px 19px;border-bottom:1px solid var(--line)}
-.vbanner::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:currentColor}
-.vbanner .vrow{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.vbanner{position:relative;padding:15px 16px 15px 20px;border-bottom:1px solid var(--line)}
+.vbanner::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:currentColor}
+.vbanner .vrow{display:flex;align-items:center;gap:9px;margin-bottom:7px}
 .vbanner .vic{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;
   font:700 11px/1 var(--sans);background:currentColor;flex:none}
-.vbanner .vic span{color:var(--surface)}
-.vbanner .vt{font:800 13px/1.2 var(--sans);letter-spacing:.01em}
-.vbanner .vsub{font:400 12px/1.6 var(--sans);color:#c2cbda}
-.vbanner.reject{color:var(--v-reject);background:linear-gradient(90deg,rgba(255,95,87,.12),rgba(255,95,87,.02))}
-.vbanner.refer{color:var(--v-refer);background:linear-gradient(90deg,rgba(176,107,255,.12),rgba(176,107,255,.02))}
-.vbanner.conditions{color:var(--v-conditions);background:linear-gradient(90deg,rgba(255,178,36,.11),rgba(255,178,36,.02))}
-.vbanner.clear{color:var(--v-clear);background:linear-gradient(90deg,rgba(53,208,127,.11),rgba(53,208,127,.02))}
+.vbanner .vic span{color:#fff}
+.vbanner .vt{font:650 13px/1.2 var(--sans);letter-spacing:-.005em}
+.vbanner .vsub{font:400 12px/1.65 var(--sans);color:var(--text)}
+.vbanner.reject{color:var(--v-reject);background:var(--v-reject-bg)}
+.vbanner.refer{color:var(--v-refer);background:var(--v-refer-bg)}
+.vbanner.conditions{color:var(--v-conditions);background:var(--v-conditions-bg)}
+.vbanner.clear{color:var(--v-clear);background:var(--v-clear-bg)}
 
 /* ---- drivers ----
    The measurements that actually produced the verdict, pulled out of the table
-   and given size. In the old panel "0 m to the 1984-99 edge" — the finding —
+   and given size. In the old panel "0 m to the 1984–99 edge" — the finding —
    was rendered identically to "plot frontage assumed". */
 .drivers{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
   border-bottom:1px solid var(--line)}
 .drivers.one{grid-template-columns:1fr}
-.driver{background:var(--surface);padding:12px 14px}
-.driver .dk{font:600 9.5px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+.driver{background:var(--card);padding:12px 14px}
+.driver .dk{font:600 9px/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;
   color:var(--faint);display:block;margin-bottom:6px}
-.driver .dv{font:700 21px/1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums;
-  display:block}
+.driver .dv{font:650 21px/1 var(--mono);letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;display:block;color:var(--ink)}
 .driver .dn{font:400 10.5px/1.45 var(--sans);color:var(--dim);display:block;margin-top:5px}
 .driver.hot .dv{color:var(--v-reject)}
 .driver.warn .dv{color:var(--v-conditions)}
 .driver.ok .dv{color:var(--v-clear)}
+
+/* ---- downstream ----
+   The receiving cells are a ranked list of places, so they are set as a list
+   of places: rank, coordinate, and the one number that ranked them. The
+   coordinate is monospaced because an officer reads it off the screen and
+   types it into something else. */
+#downstream{display:none}
+#downstream.on{display:block;animation:rise .38s cubic-bezier(.16,1,.3,1)}
+#downstream .dsbody{padding:2px 14px 12px}
+.rcv{display:flex;align-items:baseline;gap:9px;padding:7px 0;
+  border-bottom:1px solid var(--line)}
+.rcv:last-child{border-bottom:none}
+.rcv .n{flex:0 0 13px;font:600 9.5px/1.6 var(--mono);color:var(--faint);
+  font-variant-numeric:tabular-nums}
+.rcv .co{flex:1;min-width:0;font:400 11px/1.5 var(--mono);color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.rcv .ct{flex:none;font:550 11.5px/1.5 var(--mono);color:var(--lyr-flowpath);
+  font-variant-numeric:tabular-nums}
+.rcv .cl{display:block;font:400 9.5px/1.4 var(--sans);color:var(--faint)}
+.dsnote{font:400 10.5px/1.65 var(--sans);color:var(--dim);margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--line)}
+.dsmiss{padding:13px 14px;font:400 11.5px/1.7 var(--sans);color:var(--dim)}
+.dsmiss code{font:500 10.5px/1 var(--mono);background:var(--raised);padding:2px 5px;
+  border-radius:4px;color:var(--text)}
 
 /* ---- collapsible measurement table ---- */
 .fold{border-bottom:1px solid var(--line)}
 .fold>summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;
   align-items:center;gap:8px;transition:background .14s}
 .fold>summary::-webkit-details-marker{display:none}
-.fold>summary:hover{background:var(--raised)}
+.fold>summary:hover{background:var(--sunken)}
 .fold>summary .lbl{flex:1}
 .fold>summary .chev{transition:transform .22s;color:var(--faint);flex:none}
 .fold[open]>summary .chev{transform:rotate(90deg)}
 .foldbody{padding:2px 14px 13px}
 .foldbody .metric .k{font-size:11px}
-.foldbody .metric .v{font-size:12px}
+.foldbody .metric .v{font-size:11.5px}
 
 .vactions{padding:13px 14px;display:flex;flex-direction:column;gap:8px}
-.vactions .btn{justify-content:center;width:100%}
+.vactions .btn{width:100%}
 
 /* ===========================================================================
    DOCK — one slot at the bottom centre, two occupants
    The timeline owns it in timeline mode; the ask bar owns it everywhere else.
    They never coexist, so they never need to negotiate space, and the eye
    learns one place to look for "the thing I drive this with".
+   Centred between the rails rather than on the viewport: centring on 50% of
+   the window looks right only while both rails are the same width.
    =========================================================================== */
-/* Centred between the rails rather than on the viewport. Centring on 50% of
-   the window looks right only while both rails happen to be the same width —
-   at any narrower size the answer panel slid straight under the inspector. */
 #dock{position:absolute;left:var(--rail-l);right:var(--rail-r);bottom:var(--dock-gap);
-  margin-inline:auto;max-width:760px;
-  z-index:25;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+  margin-inline:auto;max-width:740px;z-index:25;
+  display:flex;flex-direction:column;gap:9px;pointer-events:none}
 #dock>*{pointer-events:auto}
 
 /* ---- timeline ---- */
-#timeline{padding:14px 18px 15px;transition:transform .4s cubic-bezier(.32,.72,0,1),opacity .3s}
-#timeline.hid{transform:translateY(calc(100% + 30px));opacity:0;pointer-events:none;
+#timeline{padding:13px 18px 14px;
+  transition:transform .4s cubic-bezier(.32,.72,0,1),opacity .3s}
+#timeline.hid{transform:translateY(calc(100% + 34px));opacity:0;pointer-events:none;
   position:absolute;bottom:0;left:0;right:0}
 .trow{display:flex;align-items:center;gap:16px}
-#play{width:40px;height:40px;flex:none;border-radius:50%;
-  border:1px solid var(--accent-line);background:var(--accent-dim);color:#bcdcff;
-  font-size:13px;cursor:pointer;display:grid;place-items:center;
-  transition:transform .16s cubic-bezier(.34,1.56,.64,1),background .16s}
-#play:hover{background:rgba(77,159,255,.26);transform:scale(1.06)}
+#play{width:40px;height:40px;flex:none;border-radius:50%;border:none;
+  background:var(--act);color:var(--act-ink);font-size:12px;cursor:pointer;
+  display:grid;place-items:center;
+  box-shadow:0 1px 2px rgba(13,17,28,.24),0 4px 12px -4px rgba(13,17,28,.34);
+  transition:transform .18s cubic-bezier(.34,1.4,.64,1),background .16s}
+#play:hover{background:var(--act-hi);transform:scale(1.05)}
 #play:active{transform:scale(.97)}
 .tcore{flex:1;min-width:0}
-.thead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:9px}
-#year{font:700 24px/1 var(--mono);letter-spacing:-.03em;font-variant-numeric:tabular-nums;flex:none}
+.thead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;
+  margin-bottom:9px}
+/* The era label carries a colour dot that matches the water layer dominant at
+   this point in the scrub, so "which water am I looking at" is answered in the
+   same glance as "which year". */
+.era{display:flex;align-items:center;gap:8px;flex:none}
+.era .edot{width:9px;height:9px;border-radius:50%;flex:none;
+  box-shadow:0 0 0 3px rgba(255,255,255,.85);transition:background .3s}
+#year{font:650 21px/1 var(--mono);letter-spacing:-.045em;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
 #caption{font:400 11.5px/1.5 var(--sans);color:var(--dim);text-align:right}
-input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;
-  border-radius:2px;outline:none;cursor:pointer;
-  background:linear-gradient(90deg,var(--lyr-historic),var(--v-reject))}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
-  border-radius:50%;background:#fff;cursor:grab;
-  box-shadow:0 0 0 4px rgba(255,255,255,.14), 0 2px 6px rgba(0,0,0,.5)}
+
+/* The track runs amber to cyan — the same two colours the water layers use —
+   so the direction of the scrub is legible before it is dragged. */
+input[type=range]{width:100%;height:5px;-webkit-appearance:none;appearance:none;
+  border-radius:3px;outline:none;cursor:pointer;
+  background:linear-gradient(90deg,var(--lyr-historic) 0%,#c9b3a0 42%,
+    #7fb9c9 62%,var(--lyr-present) 100%);
+  box-shadow:inset 0 0 0 1px rgba(13,17,28,.07)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;
+  border-radius:50%;background:#fff;cursor:grab;border:none;
+  box-shadow:0 0 0 1px rgba(13,17,28,.12),0 2px 5px rgba(13,17,28,.28)}
 input[type=range]::-webkit-slider-thumb:active{cursor:grabbing}
-input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;
-  background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.14)}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border:none;border-radius:50%;
+  background:#fff;box-shadow:0 0 0 1px rgba(13,17,28,.12),0 2px 5px rgba(13,17,28,.28)}
 .ticks{display:flex;justify-content:space-between;margin-top:8px;
-  font:400 9.5px/1 var(--mono);color:var(--faint);letter-spacing:.02em}
+  font:450 9.5px/1.3 var(--mono);color:var(--faint);letter-spacing:.01em}
+.ticks span:nth-child(2){opacity:.7}
+.ticks span:last-child{text-align:right}
 
 /* ---- ask ----
-   Its own input, docked, always in the same place. It used to be the last
-   element inside a 900 px stack in a 306 px rail, which meant the officer had
-   to scroll past every measurement to reach the one control that takes a
-   question. The answer expands upward from here so the input never moves.
+   Its own input, docked, always in the same place. The answer expands upward
+   from here so the input never moves under the cursor as it grows.
    =========================================================================== */
 #askDock{display:none;flex-direction:column;gap:9px}
 #askDock.on{display:flex;animation:rise .3s cubic-bezier(.16,1,.3,1)}
 
 #answerPanel{display:none;max-height:min(46vh,430px);overflow:hidden;flex-direction:column}
 #answerPanel.on{display:flex}
-.ahead{display:flex;align-items:flex-start;gap:10px;padding:13px 15px;
+.ahead{display:flex;align-items:flex-start;gap:10px;padding:12px 15px;
   border-bottom:1px solid var(--line);flex:none}
-.ahead .q{font:600 12.5px/1.45 var(--sans);flex:1;min-width:0}
-.ahead .gen{font:600 9.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
-  color:var(--faint);flex:none;padding-top:2px;display:flex;align-items:center;gap:5px}
+.ahead .q{font:550 12.5px/1.45 var(--sans);flex:1;min-width:0;color:var(--ink)}
+.ahead .gen{font:600 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--faint);flex:none;padding-top:3px;display:flex;align-items:center;gap:5px}
 /* While the model is still being asked, the answer on screen is the local one
    and it has to say so. Without this the deterministic paragraph rendered
-   instantly, read as final, and was then silently swapped under the reader —
-   who had no way to know a second answer was ever coming. */
-.ahead .gen.pending{color:var(--accent)}
+   instantly, read as final, and was then silently swapped under the reader. */
+.ahead .gen.pending{color:var(--focus)}
 .spin{width:9px;height:9px;flex:none;border-radius:50%;
-  border:1.5px solid rgba(77,159,255,.28);border-top-color:var(--accent);
+  border:1.5px solid rgba(14,156,191,.25);border-top-color:var(--focus);
   animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.atext.provisional{opacity:.68;transition:opacity .25s}
+.atext.provisional{opacity:.55;transition:opacity .25s}
 /* And when it is swapped, the swap is visible. */
 .atext.settled{animation:settle 1.2s ease-out}
-@keyframes settle{0%{background:rgba(77,159,255,.15);box-shadow:0 0 0 6px rgba(77,159,255,.15)}
+@keyframes settle{0%{background:rgba(14,156,191,.14);box-shadow:0 0 0 6px rgba(14,156,191,.14)}
   100%{background:transparent;box-shadow:0 0 0 6px transparent}}
 #answer{padding:14px 15px;overflow-y:auto;min-height:0}
 
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{padding:7px 11px;background:rgba(14,17,22,.92);border:1px solid var(--line);
-  color:var(--dim);border-radius:20px;font:600 11px/1 var(--sans);cursor:pointer;
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+.chip{padding:7px 12px;background:rgba(255,255,255,.93);border:1px solid var(--line);
+  color:var(--dim);border-radius:20px;font:550 11px/1 var(--sans);cursor:pointer;
+  box-shadow:var(--sh-1);
+  backdrop-filter:blur(18px) saturate(1.5);-webkit-backdrop-filter:blur(18px) saturate(1.5);
   transition:color .15s,border-color .15s,background .15s}
-.chip:hover{color:var(--text);border-color:var(--line-hot);background:var(--raised)}
+.chip:hover{color:var(--ink);border-color:var(--line-hot);background:#fff}
 
-.askbar{display:flex;gap:9px;align-items:center;padding:8px 8px 8px 15px}
+.askbar{display:flex;gap:9px;align-items:center;padding:7px 7px 7px 15px}
 .askbar .qi{flex:none;color:var(--faint);display:grid;place-items:center}
 .askbar input{flex:1;min-width:0;background:none;border:none;color:var(--text);
-  font:400 13px/1.3 var(--sans);outline:none;padding:9px 0}
+  font:400 13px/1.3 var(--sans);outline:none;padding:10px 0}
 .askbar input::placeholder{color:var(--faint)}
-.askbar .btn{padding:9px 14px}
-kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line);
-  border-bottom-width:2px;border-radius:4px;padding:4px 5px;background:var(--sunken)}
+.askbar .btn{padding:9px 15px}
+kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:5px;padding:4px 5px;background:var(--sunken)}
 
-/* answer internals */
-.awarn{margin-bottom:11px;padding:9px 11px;border-radius:var(--r-sm);
-  font:400 11px/1.6 var(--sans);color:#ffd79a;background:rgba(255,178,36,.09);
-  border-left:2px solid var(--v-conditions)}
-.atext{font:400 12.5px/1.75 var(--sans);color:#ccd5e2}
-.atext .cite{font:600 9px/1 var(--mono);color:var(--accent);padding:0 1px;vertical-align:super}
-.arefuse{margin-top:11px;padding:9px 11px;border-radius:var(--r-sm);
-  font:400 11px/1.6 var(--sans);color:#d5b8ff;background:rgba(176,107,255,.1);
-  border-left:2px solid var(--v-refer)}
-.asec{margin:16px 0 5px;font:600 9.5px/1 var(--mono);letter-spacing:.14em;
+/* ---- answer internals ---- */
+.awarn{margin-bottom:11px;padding:9px 11px;border-radius:var(--r-xs);
+  font:400 11px/1.65 var(--sans);color:var(--v-conditions);
+  background:var(--v-conditions-bg);border-left:2px solid var(--v-conditions)}
+.atext{font:400 12.5px/1.8 var(--sans);color:var(--text)}
+.atext .cite{font:600 8.5px/1 var(--mono);color:var(--focus);padding:0 1px;
+  vertical-align:super}
+.arefuse{margin-top:11px;padding:9px 11px;border-radius:var(--r-xs);
+  font:400 11px/1.65 var(--sans);color:var(--v-refer);
+  background:var(--v-refer-bg);border-left:2px solid var(--v-refer)}
+.asec{margin:16px 0 5px;font:600 9px/1 var(--mono);letter-spacing:.13em;
   text-transform:uppercase;color:var(--faint)}
 #answer .metric{padding:7px 0}
-#answer .metric .v{font-size:12px}
+#answer .metric .v{font-size:11.5px}
 #answer .metric i{font-style:normal;color:var(--faint);font-size:10px;font-weight:400}
-.awhat{margin:0;padding-left:16px;font:400 11.5px/1.7 var(--sans);color:var(--dim)}
+.awhat{margin:0;padding-left:16px;font:400 11.5px/1.75 var(--sans);color:var(--dim)}
 .awhat li{margin-bottom:5px}
 .asrc{display:flex;gap:9px;padding:9px 0;border-top:1px solid var(--line)}
-.asrc .n{flex:0 0 14px;font:600 9px/1.6 var(--mono);color:var(--accent)}
-.asrc b{display:block;font:600 11.5px/1.45 var(--sans)}
-.asrc i{display:block;font-style:normal;font:400 10.5px/1.55 var(--sans);color:var(--faint);margin-top:2px}
+.asrc .n{flex:0 0 14px;font:600 9px/1.7 var(--mono);color:var(--focus)}
+.asrc b{display:block;font:550 11.5px/1.45 var(--sans);color:var(--text)}
+.asrc i{display:block;font-style:normal;font:400 10.5px/1.6 var(--sans);
+  color:var(--dim);margin-top:2px}
 .asrc em{display:block;font-style:normal;font:400 9px/1.5 var(--mono);
-  color:rgba(93,102,118,.75);margin-top:3px}
-.asrc a{display:inline-block;font:600 9.5px/1 var(--sans);color:var(--accent);
-  margin-top:4px;text-decoration:none}
+  color:var(--faint);margin-top:3px}
+.asrc a{display:inline-block;font:550 9.5px/1 var(--sans);color:var(--focus);
+  margin-top:5px;text-decoration:none}
 .asrc a:hover{text-decoration:underline}
 
 /* ===========================================================================
-   LEGEND + TRANSIENTS
+   MAP KEY
+   The complaint this redesign started from was that two decades of water were
+   indistinguishable. The palette fixes that on the map; this fixes it in
+   words, one line per layer, with what the colour MEANS rather than what the
+   file is called.
    =========================================================================== */
-#legend{position:absolute;left:14px;bottom:var(--dock-gap);z-index:20;padding:11px 13px;
-  transition:opacity .25s}
-#legend .key{display:flex;align-items:center;gap:9px;padding:3.5px 0;
-  font:400 11px/1.3 var(--sans);color:#b6c0d0}
-.sw{width:10px;height:10px;border-radius:3px;flex:none}
+#legend{position:absolute;left:var(--pad);bottom:var(--dock-gap);z-index:20;
+  width:214px;overflow:hidden;transition:opacity .25s}
+#legend .lhead{padding:11px 13px 9px;border-bottom:1px solid var(--line)}
+#legend .lbody{padding:7px 8px 8px}
+#legend .key{display:flex;align-items:flex-start;gap:9px;padding:5px 5px;
+  border-radius:var(--r-xs)}
+#legend .key b{display:block;font:500 11px/1.35 var(--sans);color:var(--text)}
+#legend .key i{display:block;font-style:normal;font:400 9.5px/1.4 var(--mono);
+  color:var(--faint);margin-top:1px;letter-spacing:.01em}
+.sw{width:12px;height:12px;border-radius:4px;flex:none;margin-top:1px;
+  box-shadow:0 0 0 1px rgba(13,17,28,.1) inset}
+/* Lost water is drawn on the map as a wash with its old shoreline on top, so
+   its swatch is drawn the same way rather than as a flat block. */
+.sw.ghost{background:none!important;border:1.5px dashed var(--lyr-historic);
+  box-shadow:none;position:relative}
+.sw.ghost::after{content:'';position:absolute;inset:1px;border-radius:2px;
+  background:var(--lyr-historic);opacity:.22}
+.sw.line{height:4px;margin-top:5px;border-radius:2px}
 
-/* Top-centre, under the bar. Bottom-right put it on top of the zoom control
-   and inside the thumb's path on a trackpad. */
-#toast{position:absolute;top:calc(var(--topbar-h) + 12px);left:50%;transform:translateX(-50%);
-  max-width:440px;z-index:40;padding:11px 38px 11px 13px;
-  font:400 11.5px/1.55 var(--sans);color:#ffd79a;display:none;cursor:pointer;
-  border-color:rgba(255,178,36,.34);background:rgba(28,22,10,.95)}
-#toast::after{content:'\00d7';position:absolute;top:9px;right:13px;font-size:16px;color:var(--faint)}
+/* ---- basemap switch ---- */
+#basePill{position:absolute;right:var(--pad);bottom:var(--dock-gap);z-index:22;
+  display:none;padding:3px;gap:2px;border-radius:var(--r-md)}
+#basePill.on{display:flex}
+#basePill button{background:none;border:none;color:var(--dim);cursor:pointer;
+  font:550 11px/1 var(--sans);padding:7px 12px;border-radius:7px;
+  transition:color .16s,background .16s}
+#basePill button:hover{color:var(--ink)}
+#basePill button.on{background:var(--act);color:var(--act-ink)}
+
+/* ===========================================================================
+   TRANSIENTS
+   =========================================================================== */
+#toast{position:absolute;top:calc(var(--pad) + var(--topbar-h) + 10px);left:50%;
+  transform:translateX(-50%);max-width:460px;z-index:40;padding:11px 38px 11px 13px;
+  font:400 11.5px/1.6 var(--sans);color:var(--v-conditions);display:none;cursor:pointer;
+  border-color:var(--v-conditions-line);background:var(--v-conditions-bg)}
+#toast::after{content:'\00d7';position:absolute;top:9px;right:13px;font-size:16px;
+  color:var(--faint)}
 
 #hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:18;
-  padding:17px 22px;text-align:center;display:none;pointer-events:none;
+  padding:16px 20px;text-align:center;display:none;pointer-events:none;
   animation:rise .3s cubic-bezier(.16,1,.3,1)}
-#hint b{display:block;font:700 13.5px/1.3 var(--sans);margin-bottom:5px}
-#hint span{font:400 11.5px/1.55 var(--sans);color:var(--dim)}
+#hint b{display:block;font:600 13px/1.3 var(--sans);margin-bottom:5px;color:var(--ink)}
+#hint span{font:400 11.5px/1.6 var(--sans);color:var(--dim)}
 
 #map.aim .maplibregl-canvas{cursor:crosshair}
 
@@ -465,55 +607,62 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
    about how much ground that was — so a reader could not tell whether the
    verdict came from their plot or from the lake fifty metres away. */
 .probe{position:relative;display:grid;place-items:center}
-.probe .disc{position:absolute;border-radius:50%;border:1px solid currentColor;
-  background:currentColor;opacity:.16}
-.probe .ring{position:absolute;border-radius:50%;border:1px dashed currentColor;opacity:.5}
-.probe .core{width:9px;height:9px;border-radius:50%;background:currentColor;
-  box-shadow:0 0 0 2px rgba(7,8,11,.8), 0 0 12px currentColor;z-index:2}
-.probe .pulse{position:absolute;width:11px;height:11px;border-radius:50%;
-  background:currentColor;animation:ping 2s cubic-bezier(0,0,.2,1) infinite}
-@keyframes ping{0%{transform:scale(1);opacity:.6}80%,100%{transform:scale(3.4);opacity:0}}
+.probe .disc{position:absolute;border-radius:50%;background:currentColor;opacity:.2}
+.probe .ring{position:absolute;border-radius:50%;border:1.5px dashed currentColor;
+  opacity:.75}
+.probe .core{width:11px;height:11px;border-radius:50%;background:currentColor;
+  box-shadow:0 0 0 2.5px #fff,0 1px 4px rgba(13,17,28,.4);z-index:2}
+.probe .pulse{position:absolute;width:13px;height:13px;border-radius:50%;
+  background:currentColor;animation:ping 2.1s cubic-bezier(0,0,.2,1) infinite}
+@keyframes ping{0%{transform:scale(1);opacity:.5}80%,100%{transform:scale(3.4);opacity:0}}
 
 /* ===========================================================================
    MODAL
    =========================================================================== */
-#modal{position:absolute;inset:0;z-index:50;background:rgba(4,5,8,.82);
-  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
-  display:none;place-items:center;padding:40px}
+#modal{position:absolute;inset:0;z-index:50;background:rgba(210,214,222,.6);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  display:none;place-items:center;padding:36px}
 #modal.on{display:grid;animation:fade .2s}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-.sheet{width:min(740px,100%);max-height:84vh;overflow-y:auto;padding:28px 30px;
+.sheet{width:min(760px,100%);max-height:86vh;overflow-y:auto;padding:30px 32px;
+  background:#fff;border-radius:var(--r-xl);
   animation:rise .3s cubic-bezier(.16,1,.3,1)}
-.sheet h2{font:800 19px/1.25 var(--sans);letter-spacing:-.02em;margin-bottom:6px}
-.sheet .lede{font:400 12.5px/1.65 var(--sans);color:var(--dim);margin-bottom:22px}
+.sheet h2{font:650 20px/1.25 var(--sans);letter-spacing:-.025em;margin-bottom:6px;
+  color:var(--ink)}
+.sheet .lede{font:400 12.5px/1.7 var(--sans);color:var(--dim);margin-bottom:22px}
 .case{padding:14px 0;border-top:1px solid var(--line)}
-.case .t{font:700 12.5px/1.3 var(--sans);margin-bottom:5px}
-.case .d{font:400 11.5px/1.65 var(--sans);color:var(--dim)}
-.case .n{font-family:var(--mono);color:var(--v-conditions);font-weight:700;
+.case .t{font:600 12.5px/1.3 var(--sans);margin-bottom:5px;color:var(--ink)}
+.case .d{font:400 11.5px/1.7 var(--sans);color:var(--dim)}
+.case .n{font-family:var(--mono);color:var(--v-conditions);font-weight:600;
   font-variant-numeric:tabular-nums}
-.sheet a{color:var(--accent);text-decoration:none;font-size:10.5px}
+.sheet a{color:var(--focus);text-decoration:none;font-size:10.5px}
 .sheet a:hover{text-decoration:underline}
-#modalClose{position:absolute;top:24px;right:28px;background:var(--surface);
-  border:1px solid var(--line);color:var(--dim);width:32px;height:32px;border-radius:50%;
-  font-size:18px;cursor:pointer;line-height:1;display:grid;place-items:center;
-  transition:color .15s,border-color .15s}
-#modalClose:hover{color:var(--text);border-color:var(--line-hot)}
+#modalClose{position:absolute;top:22px;right:26px;background:#fff;
+  border:1px solid var(--line-hot);color:var(--dim);width:34px;height:34px;
+  border-radius:50%;font-size:18px;cursor:pointer;line-height:1;display:grid;
+  place-items:center;box-shadow:var(--sh-2);transition:color .15s,border-color .15s}
+#modalClose:hover{color:var(--ink);border-color:var(--line-bright)}
 
 /* ---------- certificate ----------
-   Screen styling is incidental: this exists to be printed, and the print block
-   below is the real design. */
-.cert h3{font:700 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
-  color:var(--faint);margin:24px 0 9px;border-bottom:1px solid var(--line);padding-bottom:6px}
+   The screen styling and the print styling finally agree, because the whole
+   interface is now the colour paper is. What you sign is what you saw. */
+.cert h3{font:600 9.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);margin:24px 0 9px;border-bottom:1px solid var(--line);
+  padding-bottom:7px}
 .chead{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}
-.cref{text-align:right;flex:none;font:400 10px/1.5 var(--mono);color:var(--dim)}
-.cref b{display:block;font-size:12px;color:var(--text);margin-bottom:3px}
+.cref{text-align:right;flex:none;font:400 10px/1.55 var(--mono);color:var(--dim)}
+.cref b{display:block;font-size:12px;color:var(--ink);margin-bottom:3px}
 .cert-decision{margin:20px 0 11px;padding:15px 18px;border-radius:var(--r-md);
-  font:800 17px/1.2 var(--sans);letter-spacing:.02em;border:1px solid}
-.cert-decision.reject{background:rgba(255,95,87,.13);color:#ff8880;border-color:rgba(255,95,87,.5)}
-.cert-decision.refer{background:rgba(176,107,255,.13);color:#cfa6ff;border-color:rgba(176,107,255,.5)}
-.cert-decision.conditions{background:rgba(255,178,36,.12);color:#f3c65c;border-color:rgba(255,178,36,.5)}
-.cert-decision.clear{background:rgba(53,208,127,.12);color:#63d478;border-color:rgba(53,208,127,.5)}
-.creason{margin:0 0 4px 18px;font:400 12px/1.75 var(--sans);color:#c3d2e6}
+  font:700 17px/1.2 var(--sans);letter-spacing:-.01em;border:1px solid}
+.cert-decision.reject{background:var(--v-reject-bg);color:var(--v-reject);
+  border-color:var(--v-reject-line)}
+.cert-decision.refer{background:var(--v-refer-bg);color:var(--v-refer);
+  border-color:var(--v-refer-line)}
+.cert-decision.conditions{background:var(--v-conditions-bg);color:var(--v-conditions);
+  border-color:var(--v-conditions-line)}
+.cert-decision.clear{background:var(--v-clear-bg);color:var(--v-clear);
+  border-color:var(--v-clear-line)}
+.creason{margin:0 0 4px 18px;font:400 12px/1.8 var(--sans);color:var(--text)}
 .creason li{margin-bottom:6px}
 .crow{display:flex;justify-content:space-between;gap:20px;padding:6px 0;
   border-bottom:1px solid var(--line);font-size:11.5px}
@@ -521,22 +670,23 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 .crow span:last-child{text-align:right;font-family:var(--mono);font-size:11px;
   font-variant-numeric:tabular-nums}
 .cfields{display:flex;gap:14px}
-.cfields label{flex:1;font:600 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
-  color:var(--faint);display:flex;flex-direction:column;gap:5px}
+.cfields label{flex:1;font:600 9.5px/1 var(--mono);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);display:flex;flex-direction:column;gap:5px}
 .cin{background:transparent;border:none;border-bottom:1px solid var(--line-hot);
-  color:var(--text);font:400 12px/1.4 var(--sans);padding:5px 2px;outline:none}
-.cin:focus{border-color:var(--accent)}
+  color:var(--text);font:400 12px/1.4 var(--sans);padding:6px 2px;outline:none}
+.cin:focus{border-color:var(--focus)}
 .csnap{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);margin-top:5px}
-.ccanon{font:400 9.5px/1.65 var(--mono);color:var(--dim);word-break:break-all;
+.ccanon{font:400 9.5px/1.7 var(--mono);color:var(--dim);word-break:break-all;
   background:var(--sunken);padding:10px 12px;border-radius:var(--r-sm);
   border:1px solid var(--line)}
-.cnote{font:400 11px/1.65 var(--sans);color:var(--dim);margin-top:9px}
+.cnote{font:400 11px/1.7 var(--sans);color:var(--dim);margin-top:9px}
 .cbox{height:66px;border:1px solid var(--line-hot);border-radius:var(--r-sm);margin-top:5px}
-.ccheck{font:400 11.5px/1.5 var(--sans);color:var(--dim);margin-top:10px}
+.ccheck{font:400 11.5px/1.55 var(--sans);color:var(--dim);margin-top:10px}
 .csign{display:grid;grid-template-columns:1fr 1fr;gap:18px 26px;margin-top:18px;
-  font:600 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  font:600 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint)}
 .csign hr{border:none;border-top:1px solid var(--line-hot);margin-top:24px}
-.cfoot{font:400 10.5px/1.7 var(--sans);color:var(--faint);margin-top:22px;
+.cfoot{font:400 10.5px/1.75 var(--sans);color:var(--faint);margin-top:22px;
   border-top:1px solid var(--line);padding-top:14px}
 
 /* Print the modal rather than generating a PDF: no library to load, no popup
@@ -545,8 +695,9 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 @media print{
   html,body{background:#fff;color:#000;overflow:visible;height:auto}
   #map,#top,#left,#right,#legend,#dock,#toast,#hint,#boot,#modalClose,
-  #queueToggle,.noprint{display:none!important}
-  #modal{position:static;display:block!important;background:none;backdrop-filter:none;padding:0}
+  #queueToggle,#basePill,.noprint{display:none!important}
+  #modal{position:static;display:block!important;background:none;backdrop-filter:none;
+    padding:0}
   .sheet{width:100%;max-height:none;overflow:visible;border:none;box-shadow:none;
     background:#fff;backdrop-filter:none;padding:0;animation:none}
   .cert *,.sheet *{color:#000!important}
@@ -558,61 +709,74 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   .cfoot,.cnote{color:#444!important}
 }
 
+/* Motion here is entrance-only — nothing in this interface animates to convey
+   a value. Someone who has asked the system not to move things should still
+   get every panel at full opacity, which means the end state of every keyframe
+   has to be the default state, not something an animation grants. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important}
+}
+
 /* ===========================================================================
    BOOT
    =========================================================================== */
-#boot{position:absolute;inset:0;z-index:60;background:var(--ink);display:grid;
-  place-items:center;transition:opacity .6s;gap:0}
+#boot{position:absolute;inset:0;z-index:60;background:var(--ground);display:grid;
+  place-items:center;transition:opacity .6s}
 #boot.gone{opacity:0;pointer-events:none}
-.bootin{display:flex;flex-direction:column;align-items:center;gap:16px}
-.bootbar{width:150px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
-.bootbar i{display:block;height:100%;width:38%;border-radius:2px;background:var(--accent);
+.bootin{display:flex;flex-direction:column;align-items:center;gap:18px}
+.bootmark{width:44px;height:44px;border-radius:13px;background:var(--act);
+  display:grid;place-items:center;box-shadow:var(--sh-2)}
+.bootbar{width:148px;height:3px;background:rgba(13,17,28,.08);border-radius:3px;
+  overflow:hidden}
+.bootbar i{display:block;height:100%;width:38%;border-radius:3px;background:var(--act);
   animation:sweep 1.25s cubic-bezier(.65,0,.35,1) infinite}
 @keyframes sweep{0%{transform:translateX(-110%)}100%{transform:translateX(370%)}}
-#boot span{font:600 10px/1 var(--mono);letter-spacing:.24em;color:var(--faint);
+#boot span{font:550 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--faint);
   text-transform:uppercase}
 
 /* ===========================================================================
    NARROW
    Not a phone design. This is a desk tool: rails over a map, meant for a
    monitor. What this block does is stop it BREAKING on a small screen — the
-   dock's 440 px floor and the header's non-wrapping row together push the
-   document wider than the viewport and produce horizontal scroll, which makes
-   the map undraggable. Single column, secondary furniture dropped, and the
-   controls that decide something kept.
+   dock's floor and the header's non-wrapping row together push the document
+   wider than the viewport and produce horizontal scroll, which makes the map
+   undraggable. Single column, secondary furniture dropped, and the controls
+   that decide something kept.
    =========================================================================== */
-@media (max-width:1100px){
-  :root{--rail-l:292px;--rail-r:340px}
-  #left{width:264px} #right{width:312px}
+@media (max-width:1180px){
+  :root{--rail-l:296px;--rail-r:340px}
+  #left{width:268px} #right{width:312px}
   .segmented button{padding:8px 12px;font-size:11.5px}
   .segmented button .sd{display:none}
+  .brand i{display:none}
 }
-@media (max-width:900px){
-  /* No left rail at all here, so the dock only has to clear the legend. */
-  :root{--rail-l:196px;--rail-r:340px}
+@media (max-width:960px){
+  /* No left rail at all here, so the dock only has to clear the map key. */
+  :root{--rail-l:236px;--rail-r:330px}
   #csvBtn span,#validateBtn span{display:none}
   #csvBtn,#validateBtn{padding:8px 9px}
   #left{display:none} #queueToggle{display:none}
 }
-@media (max-width:700px){
+@media (max-width:720px){
+  :root{--pad:8px}
   #top{height:auto;min-height:52px;flex-wrap:wrap;gap:8px;padding:8px 10px}
-  .brand em,.vr{display:none}
-  .brand b{font-size:12.5px}
-  #city{max-width:140px;font-size:11px}
+  .brand .txt{gap:0}
+  .vr{display:none}
+  #city{max-width:132px;font-size:11px}
   .segmented{margin-left:auto;margin-right:0}
   .segmented button{padding:7px 10px;font-size:11px}
   #validateBtn{display:none}
-  #legend{display:none}
-  #right{left:10px;right:10px;width:auto;top:auto;
-    bottom:calc(var(--dock-gap) + 132px);max-height:46vh}
-  #dock{left:10px;right:10px;max-width:none;bottom:10px}
+  #legend{display:none} #basePill{right:8px;bottom:64px}
+  #right{left:8px;right:8px;width:auto;top:auto;
+    bottom:calc(var(--dock-gap) + 128px);max-height:46vh}
+  #dock{left:8px;right:8px;max-width:none;bottom:8px}
   #timeline{padding:11px 13px}
   #play{width:34px;height:34px}
-  #year{font-size:18px}
+  #year{font-size:17px}
   #caption{display:none}
-  .ticks{font-size:8.5px}
   .drivers{grid-template-columns:1fr}
-  #toast{left:10px;right:10px;transform:none;max-width:none}
+  #toast{left:8px;right:8px;transform:none;max-width:none}
 }
 </style>
 </head>
@@ -620,19 +784,21 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 
 <div id="map"></div>
 
-<header id="top">
+<header id="top" class="panel">
   <div class="brand">
     <span class="mark">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-        <rect x="1" y="1" width="20" height="20" rx="5" stroke="rgba(255,255,255,.18)"/>
-        <path d="M4.5 13.2c1.6 0 1.6-2.2 3.2-2.2s1.6 2.2 3.2 2.2 1.6-2.2 3.2-2.2 1.6 2.2 3.2 2.2"
-              stroke="#4d9fff" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M4.5 8.4c1.6 0 1.6-2.2 3.2-2.2s1.6 2.2 3.2 2.2"
-              stroke="#1f6feb" stroke-width="1.5" stroke-linecap="round" opacity=".6"/>
-        <path d="M12 16.6h5.3" stroke="#ff5f57" stroke-width="1.5" stroke-linecap="round"/>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M1.7 5.1c1.26 0 1.26-1.85 2.52-1.85S5.48 5.1 6.74 5.1 8 3.25 9.26 3.25 10.52 5.1 11.78 5.1s1.26-1.85 2.52-1.85"
+              stroke="#fff" stroke-width="1.25" stroke-linecap="round" opacity=".38"/>
+        <path d="M1.7 9.2c1.26 0 1.26-1.85 2.52-1.85S5.48 9.2 6.74 9.2"
+              stroke="#fff" stroke-width="1.25" stroke-linecap="round"/>
+        <path d="M8.6 12.8h5.7" stroke="#ff6a5e" stroke-width="1.25" stroke-linecap="round"/>
       </svg>
     </span>
-    <b>Vanished Blue Grid</b><em>FORENSIC</em>
+    <span class="txt">
+      <b>Vanished Blue Grid</b>
+      <i>Encroachment screening</i>
+    </span>
   </div>
 
   <span class="vr"></span>
@@ -644,22 +810,22 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
     <button data-mode="impact"><span class="sd"></span>Downstream</button>
   </div>
 
-  <button class="btn" id="validateBtn" title="How this compares with the municipal record">
+  <button class="btn ghost" id="validateBtn" title="How this compares with the municipal record">
     <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1.2l4.6 2v3.9c0 2.8-1.9 4.7-4.6 5.7-2.7-1-4.6-2.9-4.6-5.7V3.2L7 1.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 7l1.5 1.5L9.4 5.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Validation</span>
   </button>
-  <button class="btn" id="csvBtn" title="Download the ranked list as CSV">
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1.6v7.6m0 0L4.2 6.4M7 9.2l2.8-2.8M2 11.3h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <button class="btn primary" id="csvBtn" title="Download the ranked list as CSV">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1.6v7.6m0 0L4.2 6.4M7 9.2l2.8-2.8M2 11.3h10" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Export CSV</span>
   </button>
 </header>
 
-<button class="btn panel over-map" id="queueToggle" title="Show the ranked list">
+<button class="btn panel" id="queueToggle" title="Show the ranked list">
   <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M2 7h10M2 10.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
   <span id="queueToggleLabel">Sites</span>
 </button>
 
-<aside id="left" class="panel over-map">
+<aside id="left" class="panel">
   <div class="phead">
     <span class="lbl" id="leftTitle">Priority sites</span>
     <span class="pill" id="leftCount"></span>
@@ -672,7 +838,7 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 
 <aside id="right">
   <div class="scroll" id="rightScroll">
-    <section class="panel over-map" id="paramsBar">
+    <section class="panel" id="paramsBar">
       <div class="pfield">
         <span class="lbl">Rule</span>
         <select id="ruleSel" title="Which buffer regime to apply"></select>
@@ -687,9 +853,11 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
       </div>
     </section>
 
-    <section class="panel over-map" id="verdict"></section>
+    <section class="panel" id="verdict"></section>
 
-    <section class="panel over-map" id="statsCard">
+    <section class="panel" id="downstream"></section>
+
+    <section class="panel" id="statsCard">
       <div class="phead"><span class="lbl" id="statsTitle">Catchment ledger</span></div>
       <div id="stats"></div>
       <div class="bar"><i id="lossBar" style="width:0"></i></div>
@@ -697,19 +865,27 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   </div>
 </aside>
 
-<div class="panel over-map" id="legend"></div>
-<div class="panel over-map" id="toast"></div>
-<div class="panel over-map" id="hint"></div>
+<div class="panel" id="legend"></div>
+
+<!-- The imagery IS the evidence in timeline mode, so the switch only appears
+     where a light basemap is a defensible way to read the ground. -->
+<div class="panel" id="basePill">
+  <button data-base="map">Map</button>
+  <button data-base="sat">Satellite</button>
+</div>
+
+<div class="panel" id="toast"></div>
+<div class="panel" id="hint"></div>
 
 <div id="dock">
-  <section class="panel over-map" id="answerPanel">
+  <section class="panel" id="answerPanel">
     <div class="ahead" id="answerHead"></div>
     <div class="scroll" id="answer"></div>
   </section>
 
   <div id="askDock">
     <div class="chips" id="askChips"></div>
-    <div class="panel over-map askbar">
+    <div class="panel askbar">
       <span class="qi">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.3"/><path d="M6.2 6.3c.15-.9.93-1.5 1.86-1.5 1.03 0 1.85.72 1.85 1.66 0 1.5-1.8 1.4-1.8 2.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.05" cy="11.2" r=".78" fill="currentColor"/></svg>
       </span>
@@ -719,25 +895,38 @@ kbd{font:600 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
     </div>
   </div>
 
-  <footer class="panel over-map" id="timeline">
+  <footer class="panel" id="timeline">
     <div class="trow">
       <button id="play" title="Play the transition (space)">&#9654;</button>
       <div class="tcore">
         <div class="thead">
-          <div id="year">2003&ndash;07</div>
+          <div class="era"><span class="edot" id="eraDot"></span><div id="year">2003&ndash;07</div></div>
           <div id="caption">The blue grid as the satellite record found it.</div>
         </div>
         <input type="range" id="slider" min="0" max="100" value="0">
-        <div class="ticks"><span>2003&ndash;07 &middot; Landsat 5</span><span>crossfade</span><span>Sentinel-2 &middot; 2023&ndash;25</span></div>
+        <div class="ticks">
+          <span>Water 1984&ndash;99 &middot; Landsat 5 imagery</span>
+          <span>crossfade</span>
+          <span>Water 2000&ndash;21 &middot; Sentinel-2 imagery</span>
+        </div>
       </div>
     </div>
   </footer>
 </div>
 
-<div id="modal"><div class="panel sheet" id="sheet"></div><button id="modalClose">&times;</button></div>
+<div id="modal"><div class="sheet" id="sheet"></div><button id="modalClose">&times;</button></div>
 
 <div id="boot">
   <div class="bootin">
+    <div class="bootmark">
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M1.7 5.1c1.26 0 1.26-1.85 2.52-1.85S5.48 5.1 6.74 5.1 8 3.25 9.26 3.25 10.52 5.1 11.78 5.1s1.26-1.85 2.52-1.85"
+              stroke="#fff" stroke-width="1.25" stroke-linecap="round" opacity=".38"/>
+        <path d="M1.7 9.2c1.26 0 1.26-1.85 2.52-1.85S5.48 9.2 6.74 9.2"
+              stroke="#fff" stroke-width="1.25" stroke-linecap="round"/>
+        <path d="M8.6 12.8h5.7" stroke="#ff6a5e" stroke-width="1.25" stroke-linecap="round"/>
+      </svg>
+    </div>
     <div class="bootbar"><i></i></div>
     <span>Reading the satellite record</span>
   </div>
@@ -772,8 +961,16 @@ var CITIES = {
   }
 };
 
-// Raster layers, painted bottom to top.
+// Raster layers fetched from data/<city>/.
 var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','encroached'];
+
+// Painted bottom to top. 'historicEdge' is not a file: it is the 1984-99
+// shoreline, traced out of historic.png in the browser. Drawing the lost water
+// as a wash AND its old edge as a line is what finally separates the two eras,
+// because a wash and a line cannot be confused with each other the way two
+// blues could.
+var MAP_LAYERS = ['rgb2005','rgb2025','floodprone','flowpath',
+                  'historic','historicHatch','historicEdge','present','encroached'];
 
 // Lookup tables, never drawn. These carry measurements rather than colour:
 // buffers packs three distances in metres into R/G/B, history packs the last
@@ -783,13 +980,31 @@ var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','
 // Membership of this list is what gets a layer decoded at 1:1 with smoothing
 // off. A measurement layer left out of it is quietly area-averaged into byte
 // codes that were never computed.
-var DATA_LAYERS = ['buffers','history','hydro'];
-// Exactly the palette gee_blue_grid.js renders the PNGs with. Changing a
-// colour here without changing it there makes the legend lie.
+var DATA_LAYERS = ['buffers','history','hydro','routing'];
+// The map palette, and the only place it is declared.
+//
+// gee_blue_grid.js still stamps its own colours into the PNGs, but every
+// visual layer it exports is a SINGLE FLAT COLOUR with the shape carried in
+// the alpha channel — so the colour in the file is decoration and the alpha is
+// the data. tint() below re-paints each one on load, which means the palette
+// can change here, in one file, without a two-minute Earth Engine run and ten
+// fresh thumbnail URLs. The legend cannot go out of step with the map because
+// both read this object.
+//
+// The pairing that matters is the first two. Water that survived is cyan;
+// water that was lost is amber. The old palette set them as #1f6feb against
+// #58a6ff and expected a viewer to tell two decades apart by saturation, on
+// top of satellite imagery, at a glance, from the back of a room.
 var PALETTE = {
-  historic:'#1f6feb', present:'#58a6ff', encroached:'#f85149',
-  flowpath:'#d29922', floodprone:'#bc8cff'
+  present:'#0e9cbf',      // water 2000-21 — alive, cool
+  historic:'#d0862b',     // water 1984-99 — lost, warm
+  historicHatch:'#d0862b',// the same layer, hatched, for close zooms
+  historicEdge:'#a8620b', // the 1984-99 shoreline, drawn as a line
+  encroached:'#e0392e',   // built on former water
+  flowpath:'#2f3391',     // the drainage spine INSIDE that low ground
+  floodprone:'#a78bfa'    // low ground — pale and large, a wash
 };
+
 
 var BLANK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
@@ -832,7 +1047,10 @@ var PARAMS = {
   handLowM:      2,      // flood-prone, as the layer defines it
   handMarginalM: 5,
   upaCeilKm2:    1000,   // the log-packing ceiling in hydro.png's red channel
-  trunkUpaKm2:   10
+  trunkUpaKm2:   10,
+  routeStepM:    90,     // one MERIT cell — the trace steps cells, not pixels
+  routeMaxSteps: 200,
+  routeCorridorM: 150    // how near the line a structure has to be to count
 };
 // @end-params
 
@@ -860,7 +1078,10 @@ var state = {
   // is rebuilt per city; lastAnswer is kept so a ruleset change can invalidate
   // an answer that was reasoned under the rule the officer has just left.
   corpus: null, centroids: null, lastAnswer: null, asking: false,
-  queueOpen: true, probeEl: null
+  queueOpen: true, probeEl: null,
+  // 'sat' = Esri imagery, 'map' = pale Esri gray canvas. Set per mode, and
+  // overridable from the switch in the bottom-right corner.
+  base: 'sat'
 };
 
 // ===========================================================================
@@ -872,13 +1093,35 @@ var map = new maplibregl.Map({
   style: {
     version: 8,
     sources: {
+      // A pale basemap, split into ground and labels so the evidence layers can
+      // be drawn between them — streets underneath for orientation, street
+      // NAMES on top so a plot can still be located by address once four
+      // rasters are stacked over it.
+      //
+      // On satellite imagery every evidence layer competes with tree canopy,
+      // rooftops and shadow; on this one a cyan lake and a crimson footprint
+      // are the only saturated things on screen. It is the default wherever
+      // the question is 'what is here now', and never the default in timeline
+      // mode, where the imagery is itself the evidence.
+      //
+      // Esri and not CARTO: CARTO's free basemap endpoint now stamps
+      // API KEY REQUIRED across every tile, and the satellite ground is
+      // already Esri, so this adds no new dependency and no key.
+      grayBase: { type:'raster', tileSize:256, maxzoom:16,
+        tiles:['https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
+        attribution:'Esri, HERE, Garmin, © OpenStreetMap contributors' },
+      grayRef: { type:'raster', tileSize:256, maxzoom:16,
+        tiles:['https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'] },
       // Esri World Imagery sits underneath as a safety net: if a true-colour
       // export is missing the map still shows ground rather than a void.
       sat: { type:'raster', tileSize:256,
         tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
         attribution:'Esri, Maxar · JRC Global Surface Water · MERIT Hydro · Google Open Buildings' }
     },
-    layers: [{id:'sat', type:'raster', source:'sat'}]
+    layers: [
+      {id:'grayBase', type:'raster', source:'grayBase', layout:{visibility:'none'}},
+      {id:'sat',      type:'raster', source:'sat'}
+    ]
   },
   bounds: [[C.bounds[0],C.bounds[1]],[C.bounds[2],C.bounds[3]]],
   fitBoundsOptions: {padding: pad()},
@@ -936,27 +1179,62 @@ function pad(){
 
 map.on('load', function(){
   map.addSource('mask', {type:'geojson', data: maskGeo(C.bounds)});
-  map.addLayer({id:'mask', type:'fill', source:'mask',
-    paint:{'fill-color':'#04060b','fill-opacity':0.55}});
 
-  LAYERS.forEach(function(id){
+  MAP_LAYERS.forEach(function(id){
     map.addSource(id, {type:'image', url:BLANK, coordinates:corners(C.bounds)});
     map.addLayer({id:id, type:'raster', source:id,
       paint:{'raster-opacity':0, 'raster-fade-duration':0}});
   });
 
+  // Labels last, so street names survive four stacked rasters. Only ever
+  // visible on the pale ground; over imagery they would be noise.
+  map.addLayer({id:'grayRef', type:'raster', source:'grayRef',
+    layout:{visibility:'none'}, paint:{'raster-opacity':.9}});
+
   map.addSource('buildings', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'b-fill', type:'fill', source:'buildings', paint:{
     'fill-color':['case',
       ['==',['get','verdict'],'RED_FORMER_WATER_BODY'], PALETTE.encroached,
-      ['==',['get','verdict'],'RED_BLOCKS_DRAINAGE'], PALETTE.flowpath,'#8b949e'],
+      ['==',['get','verdict'],'RED_BLOCKS_DRAINAGE'], PALETTE.flowpath,'#6b7280'],
     'fill-opacity':0}});
   map.addLayer({id:'b-line', type:'line', source:'buildings',
     paint:{'line-color':'#fff','line-width':1.1,'line-opacity':0}});
 
+  // The traced route, above the footprints so it can be seen crossing them.
+  // Drawn in the drainage hue, because that is what it is: the line the water
+  // takes to reach the channels already painted that colour. A white casing
+  // underneath keeps it legible over dark imagery and pale paper alike, which
+  // one stroke at one width cannot do.
+  map.addSource('route', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'route-casing', type:'line', source:'route',
+    filter:['==','$type','LineString'],
+    layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-color':'#fff','line-width':5,'line-opacity':0}});
+  map.addLayer({id:'route-line', type:'line', source:'route',
+    filter:['==','$type','LineString'],
+    layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-color':PALETTE.flowpath,'line-width':2.2,'line-opacity':0}});
+  // The cells that carry the most catchment, sized by nothing — rank is
+  // already conveyed by the panel, and a graduated symbol here would imply a
+  // magnitude this layer does not measure at a point.
+  map.addLayer({id:'route-pt', type:'circle', source:'route',
+    filter:['==','$type','Point'],
+    paint:{'circle-radius':4.5,'circle-color':PALETTE.flowpath,
+           'circle-stroke-color':'#fff','circle-stroke-width':2,
+           'circle-opacity':0,'circle-stroke-opacity':0}});
+
+  // The veil over everything outside the study area goes on LAST, above the
+  // basemap's own street labels. Underneath them it left place names floating
+  // in an otherwise blank white field, which reads as a rendering fault rather
+  // than as the edge of the evidence.
+  map.addLayer({id:'mask', type:'fill', source:'mask',
+    paint:{'fill-color':'#04060b','fill-opacity':0.46}});
+
   map.addSource('aoi', {type:'geojson', data: aoiGeo(C.bounds)});
+  // With the margin knocked back this is the frame of the document, so it is
+  // drawn as one rather than as a faint hint.
   map.addLayer({id:'aoi-line', type:'line', source:'aoi', paint:{
-    'line-color':'#6cb6ff','line-width':1,'line-opacity':0.35,'line-dasharray':[3,3]}});
+    'line-color':'#6cb6ff','line-width':1.4,'line-opacity':0.5,'line-dasharray':[4,3]}});
 
   map.on('click','b-fill', function(e){ e.preventDefault(); selectBuilding(e.features[0]); });
   map.on('mouseenter','b-fill', function(){ if(state.mode!=='approval') map.getCanvas().style.cursor='pointer'; });
@@ -1031,7 +1309,14 @@ function sampleCh(s, lon, lat, b, ch, mode, radiusM, minAlpha){
   var aMin = minAlpha === undefined ? 255 : minAlpha;
   var x = Math.round((lon-b[0])/(b[2]-b[0]) * s.w);
   var y = Math.round((b[3]-lat)/(b[3]-b[1]) * s.h);
-  var R = Math.max(0, Math.round((radiusM || PROBE_METRES) / s.mpp));
+  // Explicitly undefined rather than falsy. A radius of zero is a legitimate
+  // request — the routing trace wants the one pixel it is standing on, not a
+  // reduction over a disc a plot wide — and `radiusM || PROBE_METRES` silently
+  // turns that into a 35 m maximum over about sixty pixels, which for a
+  // categorical direction field returns the largest code in the neighbourhood
+  // and sends the trace somewhere the water does not go.
+  var rad = radiusM === undefined || radiusM === null ? PROBE_METRES : radiusM;
+  var R = Math.max(0, Math.round(rad / s.mpp));
   var lo = mode === 'min', best = null;
   for(var dy=-R; dy<=R; dy++) for(var dx=-R; dx<=R; dx++){
     if(dx*dx+dy*dy > R*R) continue;
@@ -1063,6 +1348,121 @@ function sample(s, lon, lat, b){
   return best/255;
 }
 
+// ---------------------------------------------------------------------------
+// RE-TINTING, and tracing the lost shoreline
+// ---------------------------------------------------------------------------
+// Every visual export is a flat colour behind an alpha mask, so the browser
+// can repaint it: read the pixels once, write the palette colour into RGB,
+// leave A exactly as it was. Nothing about the geometry changes, and the
+// measurement layers in DATA_LAYERS never come through here — re-tinting a
+// byte-packed distance field would destroy the measurement.
+//
+// With `edge` set it also traces the mask boundary into a second image. That
+// is the whole argument of this tool drawn as one line: here is where the
+// water reached in 1984-99, and here is what is standing inside it now.
+var EDGE_T = 96;   // alpha at or above this counts as inside the mask
+
+// The inner boundary of the mask: inside it, with at least one of the four
+// neighbours outside. One pixel wide and no wider — the raster is 6.36 m/px
+// and the map is looked at anywhere from the whole 13 km catchment down to a
+// single plot, so a band two pixels thick is a reasonable hairline at the far
+// end and a 25 px stripe at the near one. Left at one pixel, linear
+// resampling thins it to a pale contour when the image is downsampled and
+// grows it to a clean line when it is not, which is the behaviour wanted at
+// both ends.
+//
+// Four neighbours and not eight: a diagonal-only neighbour breaks the line at
+// every step of a staircase edge, and a broken line at this scale reads as
+// noise rather than as a shoreline.
+function traceEdge(d, w, h){
+  var band = new Uint8Array(w*h);
+  for(var y = 0; y < h; y++){
+    for(var x = 0; x < w; x++){
+      var n = y*w + x;
+      if(d[n*4+3] < EDGE_T) continue;
+      if((x > 0     && d[(n-1)*4+3] >= EDGE_T) &&
+         (x < w-1   && d[(n+1)*4+3] >= EDGE_T) &&
+         (y > 0     && d[(n-w)*4+3] >= EDGE_T) &&
+         (y < h-1   && d[(n+w)*4+3] >= EDGE_T)) continue;
+      band[n] = 1;
+    }
+  }
+  return band;
+}
+
+// Lost water is HATCHED rather than filled. A flat amber wash over dry-season
+// Landsat is very nearly the colour of bare ground, and over vegetation it
+// turns olive — either way it reads as terrain, which is the one thing it must
+// not read as. Diagonal stripes read as annotation in every mapping tradition
+// there is, and they let the ground show through at full chroma between them,
+// so the colour stays amber instead of averaging with whatever is underneath.
+// The map is read three octaves apart — the whole 13 km catchment, then one
+// plot — and no single hatch works at both. Across the catchment a 4 px period
+// in a 2048 px raster downsamples below the point where stripes exist at all
+// and the lost water fades to a dotted whisper; over one plot a period coarse
+// enough to survive that becomes a barber pole. So both are rendered and
+// update() crossfades between them on zoom: a solid wash far out, stripes in
+// close, and nothing visibly switches.
+var HATCH_PERIOD = 4, HATCH_ON = 2;
+// Zoom range over which the solid wash hands over to the hatch.
+var HATCH_Z0 = 13.4, HATCH_Z1 = 14.6;
+// A solid fill covers twice the ground a 50% hatch does, so it has to be
+// carried at roughly half the opacity to read as the same weight of amber.
+var SOLID_SHARE = .78;
+
+function tint(url, hex, edge, hatch){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onerror = function(){ resolve(null); };
+    img.onload = function(){
+      var w = img.naturalWidth, h = img.naturalHeight;
+      var c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      var ctx = c.getContext('2d', {willReadFrequently:true});
+      ctx.drawImage(img, 0, 0);
+      var im, d;
+      try { im = ctx.getImageData(0, 0, w, h); d = im.data; }
+      catch(e){ resolve(null); return; }   // tainted canvas: keep the original
+
+      var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16),
+          b = parseInt(hex.slice(5,7),16);
+      for(var i = 0; i < d.length; i += 4){ d[i] = r; d[i+1] = g; d[i+2] = b; }
+
+      // The boundary has to be traced off the ORIGINAL alpha, so it is taken
+      // before the hatch punches holes in it.
+      var band = edge ? traceEdge(d, w, h) : null;
+
+      ctx.putImageData(im, 0, 0);
+      var out = {fill: c.toDataURL('image/png'), hatch: null, edge: null};
+
+      if(hatch){
+        for(var y0 = 0, k0 = 0; y0 < h; y0++)
+          for(var x0 = 0; x0 < w; x0++, k0 += 4)
+            if((x0 + y0) % HATCH_PERIOD >= HATCH_ON) d[k0+3] = 0;
+        ctx.putImageData(im, 0, 0);
+        out.hatch = c.toDataURL('image/png');
+      }
+      if(!band){ resolve(out); return; }
+
+      var er = parseInt(edge.slice(1,3),16), eg = parseInt(edge.slice(3,5),16),
+          eb = parseInt(edge.slice(5,7),16);
+      var ec = document.createElement('canvas');
+      ec.width = w; ec.height = h;
+      var ectx = ec.getContext('2d');
+      var eim = ectx.createImageData(w, h), ed = eim.data;
+      for(var n = 0, m = 0; n < band.length; n++, m += 4){
+        if(!band[n]) continue;
+        ed[m] = er; ed[m+1] = eg; ed[m+2] = eb; ed[m+3] = 255;
+      }
+      ectx.putImageData(eim, 0, 0);
+      out.edge = ec.toDataURL('image/png');
+      resolve(out);
+    };
+    img.src = url;
+  });
+}
+
 function loadCity(key){
   state.city = key;
   var c = CITIES[key];
@@ -1070,6 +1470,9 @@ function loadCity(key){
   // classList, not an inline style: an inline display:none outranks the
   // #verdict.on rule, so the next verdict rendered would never become visible.
   document.getElementById('verdict').classList.remove('on');
+  document.getElementById('downstream').classList.remove('on');
+  if(map.getSource('route'))
+    map.getSource('route').setData({type:'FeatureCollection', features:[]});
   hideAskDock();
   if(state.marker){ state.marker.remove(); state.marker=null; }
 
@@ -1085,11 +1488,31 @@ function loadCity(key){
   if(map.getSource('mask')) map.getSource('mask').setData(maskGeo(c.bounds));
   if(map.getSource('aoi')) map.getSource('aoi').setData(aoiGeo(c.bounds));
 
+  // The two true-colour composites are photographs and go up untouched;
+  // everything else is a flat mask and gets the palette written into it.
+  var RGB = ['rgb2005','rgb2025'];
   var jobs = LAYERS.map(function(id){
-    var url = 'data/'+key+'/'+id+'.png';
+    var url = 'data/'+key+'/'+id+'.png', co = corners(c.bounds);
     return exists(url).then(function(ok){
       state.have[id] = ok;
-      map.getSource(id).updateImage({url: ok?url:BLANK, coordinates:corners(c.bounds)});
+      if(!ok){ map.getSource(id).updateImage({url:BLANK, coordinates:co}); return; }
+      if(RGB.indexOf(id) !== -1){
+        map.getSource(id).updateImage({url:url, coordinates:co}); return;
+      }
+      return tint(url, PALETTE[id],
+                  id === 'historic' ? PALETTE.historicEdge : null,
+                  id === 'historic')
+        .then(function(t){
+          // A null result means the canvas could not be read. The original
+          // PNG still draws; it just draws in the colour Earth Engine chose.
+          map.getSource(id).updateImage({url: (t && t.fill) || url, coordinates:co});
+          if(id === 'historic'){
+            map.getSource('historicHatch')
+               .updateImage({url: (t && t.hatch) || BLANK, coordinates:co});
+            map.getSource('historicEdge')
+               .updateImage({url: (t && t.edge) || BLANK, coordinates:co});
+          }
+        });
     });
   });
 
@@ -1164,15 +1587,33 @@ function update(){
   // and water layers from JRC's 1984-99 and 2000-21 epochs. The readout now
   // names the composite actually on screen instead of inventing a year that
   // nothing in the data corresponds to.
-  document.getElementById('year').textContent = t < .5 ? '2003–07' : '2023–25';
+  var past = t < .5;
+  document.getElementById('year').textContent = past ? '2003\u201307' : '2023\u201325';
+  // The dot beside the year carries the colour of the water layer that
+  // dominates at this point in the scrub, so 'which water am I looking at' is
+  // answered in the same glance as 'which year'.
+  document.getElementById('eraDot').style.background =
+    past ? PALETTE.historic : PALETTE.present;
   document.getElementById('caption').textContent =
-    t<.12 ? 'Surface water recorded 1984–99, over 2003–07 imagery.' :
-    t<.45 ? 'Water retreats. The edges go first.' :
-    t<.78 ? 'Construction reaches the lakebed.' :
-            'Water still present 2000–21, over 2023–25 imagery. Red is what was built on the difference.';
+    t<.12 ? 'Amber is water the satellites recorded in 1984\u201399.' :
+    t<.50 ? 'Water retreats. The edges go first.' :
+    t<.78 ? 'Cyan is what survived. Construction reaches the lakebed.' :
+            'The amber line is the 1984\u201399 shoreline. Red is what was built inside it.';
 
   if(!map.getLayer('rgb2005')) return;
-  var m = state.mode, bo;
+  var m = state.mode, bo, light = state.base === 'map';
+
+  // One number decides how loud the lost water is; the zoom decides which of
+  // the two renderings carries it.
+  var hz = ramp(map.getZoom(), HATCH_Z0, HATCH_Z1);
+  function lost(v){
+    set('historic',      v * (1 - hz) * SOLID_SHARE);
+    set('historicHatch', v * hz);
+  }
+
+  // On the pale basemap the true-colour composites are exactly what is being
+  // replaced, so they come off entirely rather than sitting on top of it.
+  function rgb(id, v){ set(id, light ? 0 : v); }
 
   // Each mode answers a different question, so each gets its own layer mix.
   // Reusing the timeline's t outside the timeline would leave a plot check
@@ -1180,37 +1621,98 @@ function update(){
   if(m === 'timeline'){
     // rgb2005 holds steady underneath while rgb2025 fades in on top, so the
     // crossfade never exposes the modern basemap mid-drag.
-    set('rgb2005', state.have.rgb2005 ? 1 : 0);
-    set('rgb2025', state.have.rgb2025 ? ramp(t,.05,.95) : 0);
-    // The old shoreline never vanishes completely. It settles to a ghost so
-    // the viewer keeps seeing where the water used to reach.
-    set('historic',   .88 - .62*t);
-    set('present',    .88*ramp(t,.10,.70));
-    set('encroached', .95*ramp(t,.50,1));
+    rgb('rgb2005', state.have.rgb2005 ? 1 : 0);
+    rgb('rgb2025', state.have.rgb2025 ? ramp(t,.05,.95) : 0);
+    // The lost water fades from a filled wash to a ghost, and as it fades its
+    // SHORELINE comes up to full strength. What the viewer is left holding at
+    // the end of the scrub is one amber line drawn across today's ground with
+    // red construction inside it — which is the entire finding, in one frame.
+    lost(.98 - .26*t);
+    set('historicEdge', .55 + .42*ramp(t,.10,.70));
+    set('present',      .90*ramp(t,.10,.70));
+    set('encroached',   .95*ramp(t,.50,1));
     set('floodprone', 0);
     set('flowpath',   0);
     bo = .72*ramp(t,.70,1);
   } else if(m === 'approval'){
     // Every constraint visible at once on today's ground: this is the view an
     // approving officer needs, not a story about the past.
-    set('rgb2005', 0);
-    set('rgb2025', state.have.rgb2025 ? 1 : 0);
-    set('historic', .46); set('present', .62); set('encroached', .95);
-    set('floodprone', .28); set('flowpath', .55);
+    rgb('rgb2005', 0);
+    rgb('rgb2025', state.have.rgb2025 ? 1 : 0);
+    lost(.62); set('historicEdge', .92);
+    set('present', .74); set('encroached', .95);
+    set('floodprone', .17); set('flowpath', .46);
     bo = .38;
   } else {
-    set('rgb2005', 0);
-    set('rgb2025', state.have.rgb2025 ? 1 : 0);
-    set('historic', .22); set('present', .55); set('encroached', .95);
-    set('floodprone', .48); set('flowpath', .80);
+    rgb('rgb2005', 0);
+    rgb('rgb2025', state.have.rgb2025 ? 1 : 0);
+    lost(.34); set('historicEdge', .60);
+    set('present', .68); set('encroached', .92);
+    set('floodprone', .30); set('flowpath', .68);
     bo = .55;
   }
   if(map.getLayer('b-fill')){
     map.setPaintProperty('b-fill','fill-opacity',bo);
     map.setPaintProperty('b-line','line-opacity',bo*1.2);
   }
+
+  // The route appears only where a site has actually been checked. Timeline
+  // mode is a story about the past and takes no site, so it never carries one;
+  // the other two modes both do, because the click that asks the question and
+  // the line that answers it belong on the same screen.
+  if(map.getLayer('route-line')){
+    var ro = (m !== 'timeline' && state.lastCheck
+              && state.lastCheck.ctx && state.lastCheck.ctx.route
+              && state.lastCheck.ctx.route.traced) ? 1 : 0;
+    map.setPaintProperty('route-casing','line-opacity', ro * .85);
+    map.setPaintProperty('route-line','line-opacity', ro);
+    map.setPaintProperty('route-pt','circle-opacity', ro);
+    map.setPaintProperty('route-pt','circle-stroke-opacity', ro);
+  }
   function set(id,v){ if(map.getLayer(id)) map.setPaintProperty(id,'raster-opacity',v); }
 }
+
+// ---------------------------------------------------------------------------
+// BASEMAP
+// ---------------------------------------------------------------------------
+// Two grounds, and the choice is not cosmetic. Satellite imagery is the
+// evidence when the question is 'what changed here' — you can see the lakebed
+// and the rooftops standing on it. It is a liability when the question is
+// 'what constrains this plot', because tree canopy, shadow and rooftop are all
+// the same visual weight as a flagged footprint. So the mode picks a default
+// and the officer can overrule it.
+function setBase(b){
+  state.base = b;
+  ['grayBase','grayRef'].forEach(function(id){
+    if(map.getLayer(id))
+      map.setLayoutProperty(id,'visibility', b === 'map' ? 'visible' : 'none');
+  });
+  if(map.getLayer('sat'))
+    map.setLayoutProperty('sat','visibility',   b === 'sat' ? 'visible' : 'none');
+  // Outside the study area is dimmed, and 'dimmed' means the opposite thing on
+  // the two grounds: a dark veil over imagery, a white one over paper.
+  if(map.getLayer('mask')){
+    map.setPaintProperty('mask','fill-color',  b === 'map' ? '#ffffff' : '#04060b');
+    // Heavier on paper than on imagery. A light veil over a light basemap
+    // washes the streets out but leaves the place labels at full ink, so the
+    // ground outside the study area comes back as names floating in a blank
+    // field. Taking it to 0.82 makes the outside read as margin.
+    map.setPaintProperty('mask','fill-opacity',b === 'map' ? .82 : .46);
+  }
+  if(map.getLayer('aoi-line'))
+    map.setPaintProperty('aoi-line','line-color', b === 'map' ? '#6b7385' : '#6cb6ff');
+  // A white footprint outline is invisible on white paper.
+  if(map.getLayer('b-line'))
+    map.setPaintProperty('b-line','line-color',
+      b === 'map' ? 'rgba(13,17,28,.5)' : '#ffffff');
+  document.querySelectorAll('#basePill button').forEach(function(x){
+    x.classList.toggle('on', x.dataset.base === b);
+  });
+  update();
+}
+document.querySelectorAll('#basePill button').forEach(function(x){
+  x.onclick = function(){ setBase(x.dataset.base); };
+});
 
 var slider = document.getElementById('slider');
 slider.addEventListener('input', function(){ stop(); state.t = slider.value/100; update(); });
@@ -1259,6 +1761,13 @@ function applyMode(){
   var m = state.mode;
   document.getElementById('map').classList.toggle('aim', m === 'approval');
   document.getElementById('paramsBar').classList.toggle('on', m === 'approval');
+
+  // The imagery IS the evidence in timeline mode, so the ground is not
+  // allowed to drift off satellite there and the switch is not offered.
+  // Everywhere else the pale basemap is the default, because a plot check is
+  // a question about constraints and constraints have to out-shout canopy.
+  document.getElementById('basePill').classList.toggle('on', m !== 'timeline');
+  setBase(m === 'timeline' ? 'sat' : 'map');
 
   // One dock, two occupants, never both. The timeline owns it in timeline
   // mode; the ask bar owns it wherever a site can be interrogated.
@@ -1331,6 +1840,8 @@ function readSite(lngLat){
 //   retreatM flowClass handClass
 //   upaKm2 distTrunk elevAboveMinM
 //   runoffDisplacedM3 runoffLoM3 runoffHiM3 runoffAnnualM3 tankerEquiv
+//   routeTraced routeLengthM routeLowGroundM routeSteps
+//   receivingMaxUpaKm2 structuresOnRoute
 //   verdict codes hasBuildings nNeighbours nearestFlaggedM
 //   intent
 // @end-site-fields
@@ -1382,6 +1893,161 @@ function neighboursOf(lngLat){
   return out.slice(0,3);
 }
 
+// ---------------------------------------------------------------------------
+// DOWNSTREAM ROUTING — where what this plot sheds actually goes
+// ---------------------------------------------------------------------------
+// The volume a plot displaces has been computable for a while. Where it goes
+// has not, and without that "who pays" is a rhetorical question: the tool could
+// say a plot sheds thirty cubic metres and not name one metre of ground that
+// receives them.
+//
+// The direction codes are the ones gee_blue_grid.js section 14 remaps MERIT's
+// powers of two into. Index is the code, value is the step in whole MERIT
+// cells: x east, y south. Row index grows southward in the raster, which is
+// why the latitude step below is negated and the longitude step is not.
+var D8_STEP = {1:[1,0], 2:[1,1], 3:[0,1], 4:[-1,1],
+               5:[-1,0], 6:[-1,-1], 7:[0,-1], 8:[1,-1]};
+var D8_MOUTH = 9, D8_DEPRESSION = 10;
+
+// MERIT Hydro sits on a 3 arc-second grid: exactly one 1200th of a degree, in
+// both axes, everywhere. The trace walks THAT grid rather than walking 90 m at
+// a time in metres.
+//
+// The difference is not cosmetic. A click lands anywhere inside a cell, so
+// stepping a fixed 90 m from it drifts off the grid within a few steps and
+// starts landing twice in the same cell or skipping one. On the real export
+// that showed up as routes oscillating between two neighbours and dying as
+// false loops — half of them. Snapped to the grid, one step is exactly one
+// cell, with no trigonometry and no accumulated error.
+//
+// The grid is CENTRE-registered: cell centres sit on integer multiples of
+// 1/1200 of a degree, not on the half-multiples a naive floor()+0.5 produces.
+// That was measured off the export rather than assumed — snapping to centres
+// puts 90% of sampled points back on their own direction code, snapping to
+// half-multiples only 58%, and the missing half-cell was enough to make three
+// traces in four die as false loops.
+//
+// PARAMS.routeStepM is the same quantity in metres, kept for the certificate
+// and the corpus because 90 m is what a reader understands.
+var MERIT_DEG = 1 / 1200;
+
+// Why the trace stopped. Reported rather than hidden: a route that ran out of
+// study area and a route that reached a trunk channel are different findings,
+// and only one of them is complete.
+var ROUTE_END = {
+  trunk:      'it joins a trunk channel',
+  mouth:      'the terrain model records an outlet there',
+  depression: 'the terrain model records a closed depression there',
+  edge:       'it leaves the mapped study area',
+  loop:       'the direction field returns to a cell already visited',
+  capped:     'the step limit was reached before any of those',
+  nodata:     'the direction field has no value there'
+};
+
+function traceDownstream(lngLat){
+  var S = state.samplers, b = CITIES[state.city].bounds;
+  var out = {traced:false, path:[], steps:0, lengthM:null, lowGroundM:null,
+             maxUpaKm2:null, receiving:[], endedBy:null, structures:null};
+  // routing.png postdates every other export, exactly as hydro.png did. Absent,
+  // the downstream facts are simply not produced and the panel says the layer
+  // is missing — which is a different statement from a route of length zero.
+  if(!S.routing) return out;
+
+  // Cell indices on MERIT's own grid. Every position below is a cell CENTRE,
+  // so the loop key is exact cell identity rather than a bucket that has to be
+  // tuned, and a revisit is a genuine cycle in the direction field.
+  var ix = Math.round(lngLat.lng / MERIT_DEG);
+  var iy = Math.round(lngLat.lat / MERIT_DEG);
+  var lon = ix * MERIT_DEG, lat = iy * MERIT_DEG;
+  var seen = {}, path = [[lon, lat]], cells = [];
+  var lengthM = 0, lowM = 0, maxUpa = null, ended = 'capped';
+
+  for(var n = 0; n < PARAMS.routeMaxSteps; n++){
+    var key = ix + ',' + iy;
+    if(seen[key]){ ended = 'loop'; break; }
+    seen[key] = 1;
+
+    // The study-area test lives on the buffers layer's alpha, as everywhere
+    // else in this file. routing.png is exported without alpha on purpose, so
+    // it cannot answer this question about itself.
+    if(sampleCh(S.buffers, lon, lat, b, 0, 'min', 0) === null){ ended = 'edge'; break; }
+
+    var upaCode = sampleCh(S.hydro, lon, lat, b, 0, 'max', 0, 1);
+    var upa = upaCode === null ? null : decodeUpa(upaCode);
+    if(upa !== null && (maxUpa === null || upa > maxUpa)) maxUpa = upa;
+
+    var hand = sampleCh(S.history, lon, lat, b, 2, 'min', 0, 1);
+    var handOk = hand !== null && hand < 255;   // 255 is the byte ceiling, not a height
+
+    // The origin is the plot being screened, not ground that receives from it.
+    if(n > 0) cells.push({lon:lon, lat:lat,
+                          upaKm2: upa === null ? null : sig2(upa),
+                          handM: handOk ? hand : null});
+
+    // Reaching a trunk channel is an arrival, not a failure: past that point
+    // the water is in the drainage system the city already models, and this
+    // tool has nothing further to add about it.
+    if(upa !== null && upa > PARAMS.trunkUpaKm2 && n > 0){ ended = 'trunk'; break; }
+
+    var code = sampleCh(S.routing, lon, lat, b, 0, 'max', 0);
+    if(code === D8_MOUTH){ ended = 'mouth'; break; }
+    if(code === D8_DEPRESSION){ ended = 'depression'; break; }
+    var d = D8_STEP[code];
+    if(!d){ ended = 'nodata'; break; }
+
+    // y is southward in raster terms and latitude increases northward, so the
+    // row step is subtracted.
+    ix += d[0]; iy -= d[1];
+    var nlon = ix * MERIT_DEG, nlat = iy * MERIT_DEG;
+
+    // True ground distance between the two cell centres. Measuring it rather
+    // than assuming it means a diagonal step costs its real root-two more
+    // without a special case, and the latitude term is correct at every step
+    // instead of being fixed at the one the trace started on.
+    var segM = metresBetween(lon, lat, nlon, nlat);
+    lengthM += segM;
+    // Each segment is attributed to the ground it leaves, which is the cell
+    // whose height was just read. Counted once, here, and nowhere else.
+    if(handOk && hand <= PARAMS.handLowM) lowM += segM;
+
+    lon = nlon; lat = nlat;
+    path.push([lon, lat]);
+  }
+
+  out.traced   = path.length > 1;
+  out.path     = path;
+  out.steps    = path.length - 1;
+  out.lengthM  = Math.round(lengthM);
+  out.lowGroundM = Math.round(lowM);
+  out.maxUpaKm2  = maxUpa === null ? null : sig2(maxUpa);
+  out.endedBy    = ended;
+
+  // The three cells the route passes through that carry the most catchment.
+  // Not the last three: the route may end at the study-area edge, and the
+  // ground that matters is wherever the water is most concentrated, which is
+  // a property of the terrain rather than of where the rectangle was drawn.
+  // Greater than zero, not merely non-null. A cell whose upstream area decodes
+  // to nothing has no catchment above it at all — it is a local high, and
+  // listing it under "receiving ground" ranked by catchment reads as a bug.
+  out.receiving = cells.filter(function(c){ return c.upaKm2 !== null && c.upaKm2 > 0; })
+    .sort(function(a, c){ return c.upaKm2 - a.upaKm2; })
+    .slice(0, 3);
+
+  // Flagged structures near the line. Optional, and it says so: the building
+  // layer is a separate Earth Engine task and a city may not have run it.
+  if(state.centroids){
+    var corridor = PARAMS.routeCorridorM, hits = 0;
+    for(var i = 0; i < state.centroids.length; i++){
+      var c = state.centroids[i];
+      for(var j = 0; j < path.length; j++){
+        if(metresBetween(path[j][0], path[j][1], c.lon, c.lat) <= corridor){ hits++; break; }
+      }
+    }
+    out.structures = hits;
+  }
+  return out;
+}
+
 function siteContext(lngLat, rule, building){
   var m = readSite(lngLat);
   var out = decide(m, rule);
@@ -1429,10 +2095,19 @@ function siteContext(lngLat, rule, building){
 
   var nb = neighboursOf(lngLat);
 
+  // Only inside the study area. A route traced out of assumptions alone would
+  // look exactly like one traced out of a direction field, which is the same
+  // reason the displaced volume is not computed out there either.
+  var route = inAoi ? traceDownstream(lngLat)
+                    : {traced:false, path:[], steps:0, lengthM:null,
+                       lowGroundM:null, maxUpaKm2:null, receiving:[],
+                       endedBy:null, structures:null};
+
   return {
     m: m,
     verdict: out,
     neighbours: nb,
+    route: route,
     // Set when the context is about one flagged footprint rather than a
     // clicked plot. Its per-footprint measurements were computed inside Earth
     // Engine against the polygon itself, so they are better evidence than the
@@ -1459,6 +2134,9 @@ function siteContext(lngLat, rule, building){
       upaKm2: upaKm2, distTrunk: distTrunk, elevAboveMinM: elevAbove,
       runoffDisplacedM3: vol, runoffLoM3: volLo, runoffHiM3: volHi,
       runoffAnnualM3: volYear, tankerEquiv: tankers,
+      routeTraced: route.traced, routeSteps: route.steps,
+      routeLengthM: route.lengthM, routeLowGroundM: route.lowGroundM,
+      receivingMaxUpaKm2: route.maxUpaKm2, structuresOnRoute: route.structures,
       verdict: out.d, codes: out.codes || [],
       hasBuildings: !!state.centroids,
       nNeighbours: nb.length,
@@ -1742,7 +2420,9 @@ function sizeProbe(){
   disc.style.width = disc.style.height = d + 'px';
   ring.style.width = ring.style.height = (d + 10) + 'px';
 }
-map.on('zoom', sizeProbe);
+// The probe disc is drawn at its true ground radius and the lost-water
+// rendering crossfades on zoom, so both have to be recomputed as the map moves.
+map.on('zoom', function(){ sizeProbe(); update(); });
 
 function placeProbe(lngLat, tone){
   if(state.marker) state.marker.remove();
@@ -1754,6 +2434,96 @@ function placeProbe(lngLat, tone){
   state.probeEl = el;
   state.marker = new maplibregl.Marker({element: el}).setLngLat(lngLat).addTo(map);
   sizeProbe();
+}
+
+// ---------------------------------------------------------------------------
+// The downstream panel
+// ---------------------------------------------------------------------------
+// This is the half of "who pays" the tool could not previously answer. It says
+// where the water goes and what the ground it reaches is like. It does not say
+// that anything floods there, and the closing note is not decoration: the
+// distinction between receiving runoff and being inundated is the one this
+// whole tool turns on, and it has to survive being read off a screen by
+// somebody who skipped the rest.
+function renderDownstream(ctx){
+  var el = document.getElementById('downstream');
+  var r = ctx && ctx.route;
+  if(!ctx || !ctx.rec.inAoi || !r){ el.classList.remove('on'); el.innerHTML = ''; return; }
+
+  var head = '<div class="phead"><span class="lbl">Where this water goes</span></div>';
+
+  if(!r.traced){
+    // Absent, not zero. The same distinction hydro.png already earns: a layer
+    // that was never exported has not measured a route of length nothing.
+    el.innerHTML = head
+      + '<div class="dsmiss">The routing layer has not been exported for '
+      + esc(CITIES[state.city].label) + ', so where this water goes cannot be '
+      + 'traced. Run section 14 of <code>gee_blue_grid.js</code>, then '
+      + '<code>./fetch_layers.sh ' + esc(state.city) + '</code>.</div>';
+    el.classList.add('on');
+    return;
+  }
+
+  function row(k, v){
+    return '<div class="metric"><span class="k">' + k + '</span>'
+         + '<span class="v">' + v + '</span></div>';
+  }
+  var km = function(m){ return m >= 1000 ? (m/1000).toFixed(1) + ' km' : m + ' m'; };
+
+  var rows = row('Traced downhill', km(r.lengthM))
+    + row('Of that, on low ground', km(r.lowGroundM))
+    + row('Largest catchment reached', r.maxUpaKm2 === null ? '—'
+            : r.maxUpaKm2 + ' km²')
+    + row('Flagged structures near the line',
+          r.structures === null ? 'layer not loaded' : String(r.structures));
+
+  var list = r.receiving.length
+    ? '<div class="lbl" style="margin:14px 0 4px">Receiving ground</div>'
+      + r.receiving.map(function(c, i){
+          return '<div class="rcv"><span class="n">' + (i+1) + '</span>'
+            + '<span class="co">' + c.lat.toFixed(4) + ', ' + c.lon.toFixed(4)
+            + '<span class="cl">' + (c.handM === null ? 'height unresolved'
+                 : HAND_PHRASE[classifyHand(c.handM)] || 'ground') + '</span></span>'
+            + '<span class="ct">' + c.upaKm2 + ' km²</span></div>';
+        }).join('')
+    : '';
+
+  el.innerHTML = head + '<div class="dsbody">' + rows + list
+    + '<div class="dsnote">Structures are counted within '
+    + PARAMS.routeCorridorM + ' m of the line. The trace stops because '
+    + ROUTE_END[r.endedBy]
+    + '. It follows terrain, not pipes, and says this ground receives what the '
+    + 'plot sheds — not that it floods.</div></div>';
+  el.classList.add('on');
+}
+
+// Short forms of the exposure classes, for the receiving list. The long forms
+// live in composeOffline and are sentences; a table cell needs three words.
+var HAND_PHRASE = {
+  AT_DRAINAGE_LEVEL:    'at drainage level',
+  DEEP_IN_A_WATER_PATH: 'inside a water path',
+  LOW_GROUND:           'low ground',
+  MARGINAL:             'marginally above',
+  ELEVATED:             'elevated',
+  UNKNOWN:              'height unresolved'
+};
+
+// One source carries the line and the receiving cells together, filtered apart
+// by geometry type in the layer definitions. Two sources for one finding would
+// be two things to keep in step.
+function drawRoute(route){
+  if(!map.getSource('route')) return;
+  var f = [];
+  if(route && route.traced && route.path.length > 1){
+    f.push({type:'Feature', geometry:{type:'LineString', coordinates: route.path},
+            properties:{}});
+    route.receiving.forEach(function(c, i){
+      f.push({type:'Feature', geometry:{type:'Point', coordinates:[c.lon, c.lat]},
+              properties:{rank: i + 1}});
+    });
+  }
+  map.getSource('route').setData({type:'FeatureCollection', features: f});
+  update();
 }
 
 function checkPlot(lngLat){
@@ -1793,6 +2563,8 @@ function checkPlot(lngLat){
   showVerdict({c:st.c, ic:st.ic, t:st.t, s:out.why.join(' ')}, rows, null,
               [{label:'Issue screening certificate', fn:issueCertificate, primary:true}],
               driversFor(state.lastCheck));
+  renderDownstream(ctx);
+  drawRoute(ctx.route);
 }
 
 function selectBuilding(f){
@@ -1805,12 +2577,12 @@ function selectBuilding(f){
   // about whichever plot happened to be clicked before it.
   state.lastAnswer = null;
   hideAnswer();
-  var drivers = null;
+  var drivers = null, ctx = null;
   if(state.samplers.buffers){
     var ctr = centroidOf(f);
     var ll = {lng: ctr[0], lat: ctr[1]};
     var rule = RULESETS[state.rule];
-    var ctx = siteContext(ll, rule, p);
+    ctx = siteContext(ll, rule, p);
     state.lastCheck = {m: ctx.m, out: ctx.verdict, ctx: ctx, lngLat: ll,
                        rule: rule, at: new Date()};
   }
@@ -1843,6 +2615,10 @@ function selectBuilding(f){
     ['Footprint confidence', Math.round(p.confidence*100)+'%']
   ];
   showVerdict(r, rows, p, null, drivers);
+  // A flagged footprint sheds water the same way a clicked plot does, so the
+  // question "who receives it" is the same question and gets the same answer.
+  renderDownstream(ctx);
+  drawRoute(ctx && ctx.route);
 }
 
 var CHEV = '<svg class="chev" width="11" height="11" viewBox="0 0 12 12" fill="none">'
@@ -2061,6 +2837,30 @@ function renderCertificate(ck, snap){
         ['Runoff arithmetic', 'plot area × ' + PARAMS.P_mm + ' mm design storm × '
            + PARAMS.dC + ' change in runoff coefficient']
       ]) +
+
+      '<h3>Downstream</h3>' +
+      rows(ck.ctx && ck.ctx.route && ck.ctx.route.traced
+        ? [
+          ['Runoff traced downhill', ck.ctx.route.lengthM + ' m, '
+             + ck.ctx.route.steps + ' steps of ' + PARAMS.routeStepM + ' m'],
+          ['Of that, over low ground', ck.ctx.route.lowGroundM + ' m'],
+          ['Largest catchment reached', ck.ctx.route.maxUpaKm2 === null ? '—'
+             : ck.ctx.route.maxUpaKm2 + ' km²'],
+          ['Flagged structures within ' + PARAMS.routeCorridorM + ' m',
+            ck.ctx.route.structures === null ? 'building layer not loaded'
+             : String(ck.ctx.route.structures)],
+          ['Receiving ground', ck.ctx.route.receiving.length
+             ? ck.ctx.route.receiving.map(function(c){
+                 return c.lat.toFixed(4) + ', ' + c.lon.toFixed(4)
+                      + ' (' + c.upaKm2 + ' km²)'; }).join('; ')
+             : '—'],
+          ['Trace ended because', ROUTE_END[ck.ctx.route.endedBy] || '—']
+        ]
+        : [['Routing', 'not available — routing layer not exported']]) +
+      '<p class="cnote">The route follows MERIT Hydro flow directions, which '
+        + 'resolve catchment drainage and not the drain network. It identifies '
+        + 'ground that receives runoff from this plot. It is not a statement '
+        + 'that the ground floods, and no depth, level or extent is implied.</p>' +
 
       '<h3>Rule applied</h3>' +
       rows([
@@ -2481,6 +3281,36 @@ function packFacts(ctx){
     {text: r.runoffAnnualM3 + ' m³', chunk: 'hydro.displacement.arithmetic'}));
   add(fact('fact.tankerEquiv', 'That volume as water tankers', r.tankerEquiv, '',
     {text: r.tankerEquiv + ' tankers', chunk: 'hydro.tanker-equivalent'}));
+  // ---- downstream ----
+  // Scoped, like the neighbour facts, so the prompt can stop the model
+  // attributing a property of the receiving ground to the plot itself. The
+  // catchment at a cell two kilometres downhill is not this plot's catchment.
+  add(fact('fact.routeLengthM', 'Distance the runoff was traced downhill',
+    r.routeLengthM, 'm',
+    {text: r.routeLengthM + ' m', scope: 'downstream',
+     chunk: 'method.routing.d8-trace'}));
+  add(fact('fact.routeLowGroundM', 'Length of that route on low ground',
+    r.routeLowGroundM, 'm',
+    {text: r.routeLowGroundM + ' m', scope: 'downstream',
+     derived_from: ['fact.routeLengthM'],
+     chunk: 'hydro.hand.exposure-classes'}));
+  add(fact('fact.receivingMaxUpaKm2', 'Largest catchment the route reaches',
+    r.receivingMaxUpaKm2, 'km²',
+    {text: r.receivingMaxUpaKm2 + ' km²', scope: 'downstream',
+     src: 'hydro.png:R', chunk: 'method.upa-definition'}));
+  add(fact('fact.structuresOnRoute', 'Already-flagged structures along that route',
+    r.structuresOnRoute, '',
+    {text: r.structuresOnRoute + ' structures', scope: 'downstream',
+     note: 'within ' + PARAMS.routeCorridorM + ' m of the traced line',
+     chunk: 'method.buildings-open-buildings-v3'}));
+  if(ctx.route) ctx.route.receiving.forEach(function(c, i){
+    add(fact('fact.receiving' + i + '.upstream',
+      'Catchment at a cell the runoff passes through',
+      c.upaKm2, 'km²',
+      {text: c.upaKm2 + ' km²', scope: 'downstream',
+       chunk: 'method.upa-definition'}));
+  });
+
   add(fact('fact.nearestFlaggedM', 'Nearest already-flagged structure',
     r.nearestFlaggedM, 'm',
     {text: r.nearestFlaggedM + ' m', scope: 'neighbourhood',
@@ -2561,6 +3391,10 @@ function buildPack(question, ctx){
     verdict: {code: ctx.verdict.d, label: OUTCOME[ctx.verdict.d].t,
               reasons: ctx.verdict.why,
               codes: ctx.verdict.codes || []},
+    // Why the trace stopped is context for the route facts rather than a
+    // measurement of its own, so it rides on the pack and not in FACTS —
+    // nothing in the narrative should ever substitute it as a number.
+    route_ended_by: ctx.route ? ctx.route.endedBy : null,
     facts: facts,
     params: packParams(),
     chunks: got.chunks,
@@ -2689,6 +3523,35 @@ function composeOffline(pack){
         + 'storm alone, not from anything measured at this location, and it is a '
         + 'displaced volume rather than a flood depth.');
     }
+    // Where it goes, which is the half of "who pays" that used to be missing.
+    // Stated as receiving, never as flooding: the sentence below is the one a
+    // reader will quote, so it has to carry the distinction itself rather than
+    // leaning on a refusal further down the page.
+    if(has('fact.routeLengthM')){
+      parts.push('Following the terrain downhill from here, that water was '
+        + 'traced ' + t('fact.routeLengthM') + ' before '
+        + (ROUTE_END[(pack.route_ended_by || 'capped')] || 'the trace stopped')
+        + '.'
+        + (has('fact.routeLowGroundM')
+            ? ' About ' + t('fact.routeLowGroundM') + ' of that route runs over '
+              + 'ground this tool classes as low, which is where runoff collects '
+              + 'rather than passes through.' : '')
+        + (has('fact.receivingMaxUpaKm2')
+            ? ' The largest catchment it joins carries '
+              + t('fact.receivingMaxUpaKm2') + '.' : '')
+        + ' That names the ground which receives what this plot sheds. It does '
+        + 'not say the ground floods, because whether it does depends on a drain '
+        + 'network this tool does not hold.');
+      if(has('fact.structuresOnRoute'))
+        parts.push('Along that line stand ' + t('fact.structuresOnRoute')
+          + ' already flagged by this tool, which is a count of who is downhill '
+          + 'and not a statement about what happens to them.');
+    } else if(pack.intent === 'consequence'){
+      parts.push('Where the runoff goes from here has not been traced: the '
+        + 'routing layer has not been exported for this city, so the volume can '
+        + 'be stated and its destination cannot.');
+    }
+
     if(has('fact.upaKm2'))
       parts.push('About ' + t('fact.upaKm2') + ' of catchment drains through this '
         + 'point, so what the plot obstructs can matter more than what it sheds.');
@@ -3154,7 +4017,7 @@ function renderStats(){
     ];
   } else {
     rows = [
-      ['Water, 1984–99', s.historic_ha, ' ha', 1, 'blue', false,
+      ['Water, 1984–99', s.historic_ha, ' ha', 1, 'amber', false,
        'JRC Global Surface Water transition classes 1, 3, 4, 6, 7, 8.'],
       ['Water, 2000–21', s.present_ha, ' ha', 1, 'blue', false,
        'JRC transition classes 1, 2, 4, 5, 7, 8.'],
@@ -3198,7 +4061,7 @@ function renderList(){
     host.innerHTML = fs.map(function(f,i){
       var p = f.properties;
       var col = p.verdict==='RED_FORMER_WATER_BODY' ? PALETTE.encroached
-              : p.verdict==='RED_BLOCKS_DRAINAGE' ? PALETTE.flowpath : '#8b949e';
+              : p.verdict==='RED_BLOCKS_DRAINAGE' ? PALETTE.flowpath : '#6b7280';
       return '<div class="item" data-i="'+i+'">'+
         '<span class="rank">'+(i+1)+'</span>'+
         '<span class="dot" style="background:'+col+'"></span>'+
@@ -3245,21 +4108,43 @@ function renderList(){
   }
 }
 
+// The complaint this redesign started from was that two decades of water were
+// indistinguishable on screen. The palette fixes that on the map. This fixes
+// it in words: one row per layer, saying what a reader should CONCLUDE from
+// the colour, not what the file that produced it is called.
+var LEGEND_ROWS = {
+  historic:     {sw:'ghost', b:'Water that was lost',     i:'JRC \u00b7 1984\u201399'},
+  historicEdge: {sw:'line',  b:'1984\u201399 shoreline',   i:'traced from the mask'},
+  present:      {sw:'',      b:'Water today',             i:'JRC \u00b7 2000\u201321'},
+  encroached:   {sw:'',      b:'Built on former water',   i:'Dynamic World \u00d7 JRC'},
+  flowpath:     {sw:'',      b:'Natural drainage path',   i:'MERIT Hydro \u00b7 > 2 km\u00b2'},
+  floodprone:   {sw:'',      b:'Low ground, floods',      i:'< 2 m above drainage'}
+};
+
+var LEGEND_FOR = {
+  // Only what is actually drawn in that mode. A key that lists a colour the
+  // map is not painting teaches the reader to distrust the key.
+  timeline: ['historic','historicEdge','present','encroached'],
+  approval: ['historicEdge','present','encroached','flowpath','floodprone'],
+  impact:   ['floodprone','flowpath','encroached','present']
+};
+var LEGEND_TITLE = {
+  timeline: 'What you are watching',
+  approval: 'What constrains this plot',
+  impact:   'Who receives the runoff'
+};
+
 function renderLegend(){
-  var m = state.mode;
-  var P = PALETTE;
-  var keys = m==='impact'
-    ? [[P.floodprone,'Flood-prone low ground'],[P.flowpath,'Natural drainage path'],
-       [P.encroached,'Built on former water'],[P.present,'Water today']]
-    : m==='approval'
-    ? [[P.historic,'Water, 1984–99'],[P.present,'Water, 2000–21'],
-       [P.encroached,'Built on former water'],[P.flowpath,'Drainage path'],
-       [P.floodprone,'Low ground']]
-    : [[P.historic,'Water, 1984–99'],[P.present,'Water, 2000–21'],
-       [P.encroached,'Built on former water'],[P.flowpath,'Blocks a drainage path']];
-  document.getElementById('legend').innerHTML = keys.map(function(k){
-    return '<div class="key"><span class="sw" style="background:'+k[0]+'"></span>'+k[1]+'</div>';
-  }).join('');
+  var m = state.mode, keys = LEGEND_FOR[m] || LEGEND_FOR.timeline;
+  document.getElementById('legend').innerHTML =
+    '<div class="lhead"><span class="lbl">' + esc(LEGEND_TITLE[m] || 'Map key')
+      + '</span></div>' +
+    '<div class="lbody">' + keys.map(function(k){
+      var r = LEGEND_ROWS[k];
+      return '<div class="key"><span class="sw ' + r.sw + '" style="background:'
+        + PALETTE[k] + '"></span><span><b>' + r.b + '</b><i>' + r.i
+        + '</i></span></div>';
+    }).join('') + '</div>';
 }
 
 // Every one of these is a recoverable notice about a missing optional input,
