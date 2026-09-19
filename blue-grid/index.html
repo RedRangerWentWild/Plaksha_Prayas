@@ -410,6 +410,32 @@ select:focus-visible{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-
 .dsmiss code{font:500 10.5px/1 var(--mono);background:var(--raised);padding:2px 5px;
   border-radius:4px;color:var(--text)}
 
+/* ---- retention ----
+   The requirement reads as a table because it is arithmetic; the options read
+   as a numbered list because they are ranked. The drafted badge is not
+   decoration: three of the four option chunks cite a source nobody here has
+   read, and a panel that looked equally confident about all of them would be
+   claiming more than the corpus does. */
+#retention{display:none}
+#retention.on{display:block;animation:rise .38s cubic-bezier(.16,1,.3,1)}
+#retention .rbody{padding:2px 14px 12px}
+#retention .phead{padding:12px 14px 10px}
+.rnote{font:400 10.5px/1.65 var(--sans);color:var(--dim);margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--line)}
+.opt{display:flex;align-items:flex-start;gap:9px;padding:8px 0;
+  border-bottom:1px solid var(--line)}
+.opt:last-of-type{border-bottom:none}
+.opt .n{flex:0 0 13px;font:600 9.5px/1.55 var(--mono);color:var(--faint);
+  font-variant-numeric:tabular-nums}
+.opt .ob{flex:1;min-width:0}
+.opt .ob b{display:block;font:550 11.5px/1.45 var(--sans);color:var(--text)}
+.opt .ob i{display:block;font-style:normal;font:400 10px/1.45 var(--sans);
+  color:var(--faint);margin-top:2px}
+.odraft{flex:none;font:600 8.5px/1 var(--mono);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--v-conditions);
+  background:var(--v-conditions-bg);border:1px solid var(--v-conditions-line);
+  border-radius:20px;padding:3px 6px;margin-top:1px}
+
 /* ---- collapsible measurement table ---- */
 .fold{border-bottom:1px solid var(--line)}
 .fold>summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;
@@ -860,11 +886,27 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
           <span>m frontage</span>
         </span>
       </div>
+      <!-- Blank by default, and blank is not zero. This tool does not know what
+           storage the rainwater harvesting rule in force requires — no chunk in
+           the corpus states a figure, deliberately, because nobody here has
+           read the rule. So the officer supplies it the same way they choose a
+           buffer regime: operator configuration, not a legal determination. -->
+      <div class="pfield">
+        <span class="lbl">Storage rule</span>
+        <span class="numin">
+          <input id="storageLpm2" type="number" min="0" max="200" step="1"
+                 placeholder="&#8212;"
+                 title="Storage the rainwater harvesting rule in force already requires, per m² of plot. Leave blank if you do not have the figure.">
+          <span>L per m&#178;</span>
+        </span>
+      </div>
     </section>
 
     <section class="panel" id="verdict"></section>
 
     <section class="panel" id="downstream"></section>
+
+    <section class="panel" id="retention"></section>
 
     <section class="panel" id="statsCard">
       <div class="phead"><span class="lbl" id="statsTitle">Catchment ledger</span></div>
@@ -1082,6 +1124,11 @@ var UNCERTAINTY_M = 20;
 var state = {
   city: 'bengaluru', mode: 'timeline', t: 0, playing: false,
   rule: 'state', plotM: 30, lastCheck: null,
+  // Storage the rainwater harvesting rule in force already requires, litres per
+  // m² of plot, entered by the officer. null is not zero: an unentered rule and
+  // a rule that requires nothing are different claims, and only one of them
+  // lets a shortfall be computed.
+  storageLpm2: null,
   stats: null, buildings: null, samplers: {}, have: {}, marker: null, selected: null, ready: false,
   // The retrieval layer. corpus is city-agnostic and fetched once; centroids
   // is rebuilt per city; lastAnswer is kept so a ruleset change can invalidate
@@ -1480,6 +1527,7 @@ function loadCity(key){
   // #verdict.on rule, so the next verdict rendered would never become visible.
   document.getElementById('verdict').classList.remove('on');
   document.getElementById('downstream').classList.remove('on');
+  document.getElementById('retention').classList.remove('on');
   if(map.getSource('route'))
     map.getSource('route').setData({type:'FeatureCollection', features:[]});
   hideAskDock();
@@ -1849,6 +1897,7 @@ function readSite(lngLat){
 //   retreatM flowClass handClass
 //   upaKm2 distTrunk elevAboveMinM
 //   runoffDisplacedM3 runoffLoM3 runoffHiM3 runoffAnnualM3 tankerEquiv
+//   storageLpm2 retentionRequiredM3 rwhRequiredM3 retentionShortfallM3
 //   routeTraced routeLengthM routeLowGroundM routeSteps
 //   receivingMaxUpaKm2 structuresOnRoute
 //   verdict codes hasBuildings nNeighbours nearestFlaggedM
@@ -2102,6 +2151,26 @@ function siteContext(lngLat, rule, building){
     vol = sig2(vol);
   }
 
+  // ---- what it would take to send nothing extra downhill ------------------
+  // Hydrological neutrality is the displaced volume itself: hold back what
+  // sealing the plot added and the catchment below is no worse off than it was
+  // before the permit. That is not a new obligation invented here — it is the
+  // volume already computed above, read as a requirement rather than as a
+  // consequence, which is why it needs no parameter of its own.
+  //
+  // The second figure is the officer's, not the tool's. A shortfall measured
+  // against a number this tool guessed at would look exactly like a shortfall
+  // measured against the rule in force, so when the field is blank it stays
+  // blank rather than defaulting to zero.
+  var retain = null, rwh = null, shortfall = null;
+  if(inAoi){
+    retain = vol;
+    if(state.storageLpm2 !== null){
+      rwh = sig2(area * state.storageLpm2 / 1000);
+      shortfall = sig2(Math.max(0, retain - rwh));
+    }
+  }
+
   var nb = neighboursOf(lngLat);
 
   // Only inside the study area. A route traced out of assumptions alone would
@@ -2143,6 +2212,9 @@ function siteContext(lngLat, rule, building){
       upaKm2: upaKm2, distTrunk: distTrunk, elevAboveMinM: elevAbove,
       runoffDisplacedM3: vol, runoffLoM3: volLo, runoffHiM3: volHi,
       runoffAnnualM3: volYear, tankerEquiv: tankers,
+      storageLpm2: state.storageLpm2,
+      retentionRequiredM3: retain, rwhRequiredM3: rwh,
+      retentionShortfallM3: shortfall,
       routeTraced: route.traced, routeSteps: route.steps,
       routeLengthM: route.lengthM, routeLowGroundM: route.lowGroundM,
       receivingMaxUpaKm2: route.maxUpaKm2, structuresOnRoute: route.structures,
@@ -2446,6 +2518,110 @@ function placeProbe(lngLat, tone){
 }
 
 // ---------------------------------------------------------------------------
+// The retention panel — what it would take, and what could discharge it
+// ---------------------------------------------------------------------------
+// A tool that only blocks gets overridden. This is the half that says what the
+// site could be instead, and it is deliberately not phrased as advice: it
+// states a requirement in cubic metres and lists the land uses that can hold
+// that volume. Which one applies is the authority's decision.
+//
+// The options are corpus chunks of kind 'option', selected by the same trigger
+// channel the retrieval layer uses — so a chunk that fires here is a chunk the
+// evidence pack will also carry, and the panel cannot show an option the
+// answer has never heard of.
+//
+// They are ordered by the SPECIFICITY of the trigger that fired: the number of
+// conditions in the matched group, descending. An option that fired on "on the
+// former bed AND water most of the time" precedes one that fired on "low
+// ground", which precedes the one available anywhere. That is a ranking
+// derived from the site's own state rather than from a score this tool
+// invented, and it needs no new frontmatter field.
+function optionsFor(rec){
+  if(!state.corpus || !rec.inAoi) return [];
+  var out = [];
+  state.corpus.chunks.forEach(function(c){
+    if(c.kind !== 'option') return;
+    for(var i = 0; i < c.when.length; i++){
+      var g = c.when[i], all = true;
+      for(var j = 0; j < g.length; j++)
+        if(!testCond(rec, g[j][0], g[j][1], g[j][2])){ all = false; break; }
+      if(all){ out.push({c: c, spec: g.length}); return; }
+    }
+  });
+  // Specificity first, declared rank second. A chunk with no rank sorts last
+  // rather than sorting arbitrarily, which makes a newly added option visibly
+  // unplaced instead of quietly jumping the queue.
+  function rank(x){ return (OPTION_META[x.c.id] || {}).rank || 99; }
+  out.sort(function(a, b){ return b.spec - a.spec || rank(a) - rank(b); });
+  return out;
+}
+
+// Why each option fired, in the officer's language rather than the trigger's,
+// and where it sits when two fire on equally specific triggers.
+//
+// The tie-break has to be declared. Sorting ties on chunk id is deterministic
+// but meaningless, and it put the option available on ANY site first — ahead of
+// restoring a bed the plot is demonstrably sitting on. Rank orders them by how
+// much of the problem the use actually addresses: putting the water back,
+// then holding it, then building around it, then recharging what is left.
+var OPTION_META = {
+  'option.wetland-restoration-tdr': {rank: 1, why: 'the plot is on the 1984\u201399 bed'},
+  'option.sponge-park-retention':   {rank: 2, why: 'the ground here is low'},
+  'option.build-around-channel':    {rank: 3, why: 'a drainage line runs through the plot'},
+  'option.recharge-structure':      {rank: 4, why: 'available on any site'}
+};
+
+function renderRetention(ctx){
+  var el = document.getElementById('retention');
+  if(!ctx || !ctx.rec.inAoi || ctx.rec.retentionRequiredM3 === null){
+    el.classList.remove('on'); el.innerHTML = ''; return;
+  }
+  var r = ctx.rec;
+  function row(k, v, cls){
+    return '<div class="metric"><span class="k">' + k + '</span>'
+         + '<span class="v' + (cls ? ' ' + cls : '') + '">' + v + '</span></div>';
+  }
+
+  var rows = row('Displaced per design storm', r.runoffDisplacedM3 + ' m\u00b3')
+    + row('To send nothing extra downhill, hold', r.retentionRequiredM3 + ' m\u00b3');
+
+  if(r.rwhRequiredM3 === null){
+    rows += row('Already required by rule', '\u2014')
+          + '<div class="rnote">Enter the storage the rainwater harvesting rule '
+          + 'in force requires, above, and the shortfall against it is computed. '
+          + 'This tool does not hold that figure and will not guess it.</div>';
+  } else {
+    rows += row('Already required by rule', r.rwhRequiredM3 + ' m\u00b3')
+          + row('Shortfall', r.retentionShortfallM3 + ' m\u00b3',
+                r.retentionShortfallM3 > 0 ? 'amber' : null)
+          + '<div class="rnote">The storage figure is the one entered above, not '
+          + 'a rule this tool read. Confirm it against the notification in force.</div>';
+  }
+
+  var opts = optionsFor(r);
+  var list = opts.length
+    ? '<div class="phead" style="border-top:1px solid var(--line)">'
+      + '<span class="lbl">What can discharge this</span></div>'
+      + '<div class="rbody">' + opts.map(function(o, i){
+          return '<div class="opt"><span class="n">' + (i+1) + '</span>'
+            + '<span class="ob"><b>' + esc(o.c.title) + '</b>'
+            + '<i>' + esc((OPTION_META[o.c.id] || {}).why
+                 || o.c.when[0].join(' ')) + '</i></span>'
+            + (o.c.verify ? '<span class="odraft" title="drafted from public '
+                + 'knowledge, not yet checked against the original source">drafted</span>'
+              : '') + '</div>';
+        }).join('')
+      + '<div class="rnote">These are the uses that can hold what this plot '
+      + 'displaces. Which one applies is the authority\u2019s decision, not '
+      + 'this tool\u2019s.</div></div>'
+    : '';
+
+  el.innerHTML = '<div class="phead"><span class="lbl">Retention requirement</span></div>'
+    + '<div class="rbody">' + rows + '</div>' + list;
+  el.classList.add('on');
+}
+
+// ---------------------------------------------------------------------------
 // The downstream panel
 // ---------------------------------------------------------------------------
 // This is the half of "who pays" the tool could not previously answer. It says
@@ -2573,6 +2749,7 @@ function checkPlot(lngLat){
               [{label:'Issue screening certificate', fn:issueCertificate, primary:true}],
               driversFor(state.lastCheck));
   renderDownstream(ctx);
+  renderRetention(ctx);
   drawRoute(ctx.route);
 }
 
@@ -2627,6 +2804,7 @@ function selectBuilding(f){
   // A flagged footprint sheds water the same way a clicked plot does, so the
   // question "who receives it" is the same question and gets the same answer.
   renderDownstream(ctx);
+  renderRetention(ctx);
   drawRoute(ctx && ctx.route);
 }
 
@@ -2847,6 +3025,30 @@ function renderCertificate(ck, snap){
            + PARAMS.dC + ' change in runoff coefficient']
       ]) +
 
+      '<h3>Retention</h3>' +
+      rows(ck.ctx && ck.ctx.rec.retentionRequiredM3 !== null
+        ? [
+          ['Displaced per design storm', ck.ctx.rec.runoffDisplacedM3 + ' m\u00b3'],
+          ['To be held on site for neutrality',
+            ck.ctx.rec.retentionRequiredM3 + ' m\u00b3'],
+          ['Storage rule applied', ck.ctx.rec.storageLpm2 === null
+             ? 'not supplied by the operator'
+             : ck.ctx.rec.storageLpm2 + ' litres per m\u00b2 of plot'],
+          ['Already required by that rule', ck.ctx.rec.rwhRequiredM3 === null
+             ? '\u2014' : ck.ctx.rec.rwhRequiredM3 + ' m\u00b3'],
+          ['Shortfall', ck.ctx.rec.retentionShortfallM3 === null
+             ? '\u2014' : ck.ctx.rec.retentionShortfallM3 + ' m\u00b3'],
+          ['Uses that can discharge it', (function(){
+             var o = optionsFor(ck.ctx.rec);
+             return o.length ? o.map(function(x){ return x.c.title; }).join('; ')
+                             : '\u2014'; })()]
+        ]
+        : [['Retention', 'not available \u2014 outside the study area']]) +
+      '<p class="cnote">The retention figure is the displaced volume, read as a '
+        + 'requirement. The storage rule is operator configuration, not a legal '
+        + 'determination by this tool, and the uses listed are those that can '
+        + 'hold the volume \u2014 not a recommendation of any one of them.</p>' +
+
       '<h3>Downstream</h3>' +
       rows(ck.ctx && ck.ctx.route && ck.ctx.route.traced
         ? [
@@ -3055,8 +3257,8 @@ function routeIntent(q){
 }
 var INTENT_KINDS = {
   flood:       {refusal:1, hydro:1, outcome:1, limit:1},
-  feasibility: {rule:1, outcome:1, error:1},
-  consequence: {hydro:1, precedent:1, outcome:1},
+  feasibility: {rule:1, outcome:1, error:1, option:1},
+  consequence: {hydro:1, precedent:1, outcome:1, option:1},
   procedure:   {rule:1, outcome:1, scope:1},
   evidence:    {method:1, limit:1, error:1}
 };
@@ -3121,7 +3323,7 @@ function firesOn(chunk, rec){
 
 var PACK_K = 8;          // retrieved on score
 var PACK_CAP = 12;       // plus forced, hard ceiling
-var KIND_CAP = {precedent: 3};
+var KIND_CAP = {precedent: 3, option: 3};
 var DEFAULT_KIND_CAP = 2;
 
 function retrieve(question, rec){
@@ -3290,6 +3492,29 @@ function packFacts(ctx){
     {text: r.runoffAnnualM3 + ' m³', chunk: 'hydro.displacement.arithmetic'}));
   add(fact('fact.tankerEquiv', 'That volume as water tankers', r.tankerEquiv, '',
     {text: r.tankerEquiv + ' tankers', chunk: 'hydro.tanker-equivalent'}));
+  // ---- retention ----
+  // The requirement is the displaced volume read as an obligation, so it is
+  // derived from the same three figures and says so. The statutory comparison
+  // carries a note that the officer supplied it: a figure this tool did not
+  // read must never look like one it did.
+  add(fact('fact.retentionRequiredM3', 'Volume that must be held on site to send '
+    + 'nothing extra downhill', r.retentionRequiredM3, 'm\u00b3',
+    {text: r.retentionRequiredM3 + ' m\u00b3',
+     derived_from: ['fact.runoffDisplacedM3'],
+     chunk: 'hydro.retention.neutrality'}));
+  add(fact('fact.rwhRequiredM3', 'Storage the rule in force already requires',
+    r.rwhRequiredM3, 'm\u00b3',
+    {text: r.rwhRequiredM3 + ' m\u00b3',
+     note: 'computed from a figure the operator entered, not from a rule this '
+         + 'tool has read',
+     derived_from: ['fact.plotAreaM2'],
+     chunk: 'hydro.retention.rainwater-harvesting-rule'}));
+  add(fact('fact.retentionShortfallM3', 'Gap between the two', r.retentionShortfallM3,
+    'm\u00b3',
+    {text: r.retentionShortfallM3 + ' m\u00b3',
+     derived_from: ['fact.retentionRequiredM3','fact.rwhRequiredM3'],
+     chunk: 'hydro.retention.rainwater-harvesting-rule'}));
+
   // ---- downstream ----
   // Scoped, like the neighbour facts, so the prompt can stop the model
   // attributing a property of the receiving ground to the plot itself. The
@@ -3566,8 +3791,38 @@ function composeOffline(pack){
         + 'point, so what the plot obstructs can matter more than what it sheds.');
     else
       parts.push('How much catchment drains through this point is not available for '
-        + 'this city — the hydro layer has not been exported — so only the plot’s '
+        + 'this city — the hydro layer has not been exported — so only the plot\u2019s '
         + 'own contribution can be quantified here.');
+  }
+
+  // What it would take to cancel that, which is the sentence an officer can act
+  // on. It belongs to more intents than the displacement does: "what else could
+  // go here" routes to feasibility, and that is precisely the question this
+  // answers, so gating it on the consequence branch left the one intent that
+  // asked for it with nothing.
+  if(pack.intent !== 'evidence' && has('fact.retentionRequiredM3')){
+    {
+      parts.push('Holding ' + t('fact.retentionRequiredM3') + ' on the site would '
+        + 'send nothing extra downhill, which is the displaced volume read as an '
+        + 'obligation rather than as a consequence.'
+        + (has('fact.retentionShortfallM3')
+            ? ' Against the storage figure entered for the rule in force, '
+              + t('fact.rwhRequiredM3') + ', that leaves a gap of '
+              + t('fact.retentionShortfallM3') + '. That comparison rests on a '
+              + 'figure the operator supplied, not one this tool has read.'
+            : ' How much of that the rainwater harvesting rule in force already '
+              + 'requires is not held by this tool, so the comparison is the '
+              + 'officer\u2019s to make.'));
+    }
+    // Named, not recommended. The chunks carry what each one is and what it
+    // costs; this says only that the list is a list.
+    var optIds = pack.chunks.filter(function(c){ return c.kind === 'option'; });
+    if(optIds.length)
+      parts.push('The sources below name '
+        + (optIds.length === 1 ? 'one use' : 'uses')
+        + ' that can hold that volume on a site like this one. Which of them '
+        + 'applies is the sanctioning authority\u2019s decision and not this '
+        + 'tool\u2019s.');
   }
 
   if(pack.intent === 'feasibility'){
@@ -4198,6 +4453,22 @@ ruleSel.onchange = function(){
 document.getElementById('plotM').onchange = function(){
   state.plotM = Math.max(5, Math.min(300, +this.value || 30));
   this.value = state.plotM;
+  if(state.lastCheck) checkPlot(state.lastCheck.lngLat);
+};
+document.getElementById('storageLpm2').onchange = function(){
+  // An empty field is null, not zero. Coercing it with `+this.value || 0` would
+  // make "I have not entered the rule" and "the rule requires nothing" produce
+  // the same shortfall, and only one of those is a finding.
+  var raw = String(this.value).trim();
+  if(raw === ''){ state.storageLpm2 = null; }
+  else {
+    var v = +raw;
+    state.storageLpm2 = isFinite(v) ? Math.max(0, Math.min(200, v)) : null;
+    this.value = state.storageLpm2 === null ? '' : state.storageLpm2;
+  }
+  // Same reasoning as the ruleset: an answer reasoned against a storage figure
+  // the officer has just changed reads as current and is not.
+  state.lastAnswer = null;
   if(state.lastCheck) checkPlot(state.lastCheck.lngLat);
 };
 

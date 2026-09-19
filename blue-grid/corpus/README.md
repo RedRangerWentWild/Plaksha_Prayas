@@ -39,7 +39,7 @@ plain string, except `always`, `never_alone` and `verify`, which are `true`/`fal
 
 | field | meaning |
 |---|---|
-| `kind` | rule, method, limit, error, outcome, hydro, precedent, refusal, scope |
+| `kind` | rule, method, limit, error, outcome, hydro, precedent, refusal, scope, option |
 | `authority` | statute, court, agency-survey, dataset-doc, repo-derived, editorial |
 | `source` | the thing a reader would go and check |
 | `url` | required for statute, court, agency-survey, dataset-doc |

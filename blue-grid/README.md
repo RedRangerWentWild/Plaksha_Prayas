@@ -249,6 +249,65 @@ into every answer the route appears in.
 
 ---
 
+## Retention — what it would take, and what could discharge it
+
+A tool that only blocks gets overridden. Layer 3 says where the water goes;
+this says what the site could be instead, so that refusing is not the only
+thing on offer.
+
+**The requirement is the displaced volume, read as an obligation.** Hold back
+what sealing the plot added and the catchment below is no worse off than before
+the permit. That needs no new parameter — it is the same figure the runoff
+arithmetic already produced, which is why it stays checkable on paper.
+
+### The storage rule is the officer's number, not the tool's
+
+Bengaluru already requires rainwater harvesting storage on new plots, and part
+of what a development displaces is therefore already meant to be held on site.
+Comparing the two is the single most useful thing an officer can do with these
+figures.
+
+**This tool does not hold that rule.** No chunk states the figure, deliberately,
+because nobody here has read it. So it is entered in the inspector beside the
+buffer regime, and left blank it stays blank — a shortfall measured against a
+number the tool guessed at would look exactly like a shortfall measured against
+the rule in force. Same posture as the buffer distances: operator
+configuration, not a legal determination.
+
+That choice also keeps the corpus honest. `check_corpus.py` fails if anything
+in the `@params` block lacks a declaring chunk, so putting the figure in
+`PARAMS` would have forced this repo to invent a statute to satisfy its own
+checker.
+
+### It states a requirement and lists options. It never recommends
+
+`BANNED` rejects *we recommend*, and the tool's whole posture is that it
+screens rather than decides. So the panel names the uses that can hold the
+volume and says which one applies is the authority's decision.
+
+Options are corpus chunks of kind `option`, selected by the same trigger
+channel retrieval uses — a chunk that fires in the panel is one the evidence
+pack can also carry. They are ordered by the **specificity of the trigger that
+fired**: an option that fired on *on the former bed and water most of the time*
+precedes one that fired on *low ground*, which precedes the one available
+anywhere. Ties fall back to a declared rank, because sorting them on chunk id
+is deterministic and meaningless — it put the option available on any site
+ahead of restoring a bed the plot is demonstrably sitting on.
+
+| option | fires when |
+|---|---|
+| Restoration with the development value moved elsewhere | on the 1984–99 bed |
+| A sunken park that holds the storm and looks like an amenity | low ground or at drainage level |
+| Build around the channel rather than over it | on or beside a flow path |
+| Return the water to the aquifer instead of to the drain | any site with a requirement |
+
+All four are marked **drafted** in the panel and carry `verify: true`. They
+describe policy mechanisms whose sources have not been read, and a panel that
+looked equally confident about all of them would be claiming more than the
+corpus does.
+
+---
+
 ## The interface
 
 Everything below is a legibility argument, not a style preference.
@@ -485,6 +544,7 @@ verify_encoding.py proves the byte-packed layers decoded losslessly
 build_corpus.py    compiles corpus/**/*.md into data/corpus.json
 check_corpus.py    checks the corpus against the code it describes
 corpus/            the knowledge, one idea per file — see corpus/README.md
+corpus/option/     what a flagged site could be instead, one use per file
 data/<city>/       layers, stats.json, flagged_buildings.geojson
 data/corpus.json   the compiled corpus, committed
 urls/<city>.txt    pasted Earth Engine console links

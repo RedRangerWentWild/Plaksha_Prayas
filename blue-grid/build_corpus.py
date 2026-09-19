@@ -19,7 +19,7 @@ CORPUS = os.path.join(ROOT, 'corpus')
 OUT = os.path.join(ROOT, 'data', 'corpus.json')
 
 KINDS = ['rule', 'method', 'limit', 'error', 'outcome', 'hydro',
-         'precedent', 'refusal', 'scope']
+         'precedent', 'refusal', 'scope', 'option']
 AUTHORITIES = ['statute', 'court', 'agency-survey', 'dataset-doc',
                'repo-derived', 'editorial']
 INTENTS = ['flood', 'feasibility', 'consequence', 'procedure', 'evidence']
