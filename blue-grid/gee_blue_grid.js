@@ -251,6 +251,35 @@ print('PNG flowpath:', flowPath.selfMask()
 print('PNG floodprone:', floodProne.selfMask()
   .visualize({palette: ['bc8cff'], opacity: 1}).getThumbURL(THUMB));
 
+// ---------------------------------------------------------------------------
+// 10. BENCHMARK EXPORTS
+// ---------------------------------------------------------------------------
+// The pipeline takes JRC as its reference for what was water. That is a
+// choice, and a choice deserves a number. These two layers let an independent
+// spectral method be scored against that reference on the same ground in the
+// same years, which is the only accuracy claim this project is entitled to
+// make: it has no surveyed ground truth, so it reports cross-method agreement
+// and says so.
+//
+// Reference: JRC YearlyHistory, which classifies water per calendar year, so
+// both sides cover 2003-2007 exactly. Comparing against the transition band
+// instead would mix method disagreement with twenty years of real change.
+var yearly = ee.ImageCollection('JRC/GSW1_4/YearlyHistory')
+  .filterDate('2003-01-01', '2008-01-01');
+var refWater2005 = yearly.map(function(im){
+  return im.select('waterClass').gte(2);      // 2 seasonal, 3 permanent
+}).max().unmask(0).clip(AOI).rename('ref');
+
+// Prediction side: raw MNDWI from the same Landsat 5 composite, exported as a
+// continuous grey ramp rather than a mask, so thresholds can be chosen and
+// compared offline instead of being baked in here.
+var mndwi2005 = l5.normalizedDifference(['SR_B2', 'SR_B5']).clip(AOI).rename('mndwi');
+
+print('PNG ref2005:', refWater2005
+  .visualize({min:0, max:1, palette:['000000','ffffff']}).getThumbURL(THUMB));
+print('PNG mndwi2005:', mndwi2005
+  .visualize({min:-1, max:1, palette:['000000','ffffff']}).getThumbURL(THUMB));
+
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.
 Export.table.toDrive({

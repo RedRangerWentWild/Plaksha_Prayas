@@ -107,6 +107,31 @@ Every flag is a lead for ground verification, not a finding of fact.
 
 ---
 
+## Accuracy
+
+There is no surveyed encroachment dataset for this catchment, so there is no
+ground truth to score against and no honest "model accuracy" number to report.
+What can be measured is whether the reference this pipeline depends on is
+reproducible by an independent method.
+
+`validate.py` scores Landsat 5 MNDWI against JRC Global Surface Water's own
+per-year classification, over the same pixels in the same years (2003–2007),
+on held-out spatial blocks:
+
+```
+./validate.py bengaluru --blocks 6x4 --holdout 8
+```
+
+Blocks are contiguous tiles, not random pixels. Neighbouring pixels of one
+lake are not independent samples, and a pixel-wise split would inflate every
+score. The Otsu threshold is fitted on training blocks only.
+
+This pipeline contains no learned model. Every flag traces to a published
+dataset and a stated threshold, which is why a judge can be handed the reason
+for any individual flag rather than a confidence score.
+
+---
+
 ## Files
 
 ```
