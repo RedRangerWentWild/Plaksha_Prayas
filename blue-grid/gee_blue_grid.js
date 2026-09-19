@@ -299,6 +299,16 @@ print('PNG mndwi2005:', mndwi2005
 var DTPROJ = ee.Projection('EPSG:32643').atScale(10);   // UTM 43N covers Bengaluru
 var DT_PX = 48;                                          // 480 m search radius
 
+// The distance transform has to run in a metric projection or "pixels" are
+// not a length. But leaving the result in UTM gives the image a fixed metric
+// projection, and getThumbURL then renders in UTM: 2048x1232 instead of the
+// 2048x1195 every other layer exports at, on a different grid. The client maps
+// lon/lat linearly across the raster, so that silently reads every distance
+// from the wrong ground. Transform in UTM, then come back to 4326 so the
+// geometry matches the rest of the stack. Nearest-neighbour resampling keeps
+// the byte codes exact through both hops.
+var OUTPROJ = ee.Projection('EPSG:4326').atScale(10);
+
 function distanceMetres(mask){
   return mask.unmask(0).reproject(DTPROJ)
     .fastDistanceTransform({neighborhood: DT_PX, units: 'pixels',
@@ -306,7 +316,8 @@ function distanceMetres(mask){
     .sqrt()          // squared pixels to pixels
     .multiply(10)    // pixels to metres, because DTPROJ is at 10 m
     .min(255)        // 255 is a saturation flag, not a measurement
-    .round().toUint8();
+    .round().toUint8()
+    .reproject(OUTPROJ);
 }
 
 // Deliberately NOT the clipped flowPath from section 5. A channel 200 m
@@ -339,7 +350,13 @@ var buffers = distanceMetres(presentWaterJRC).rename('r')
 // wet year, and it is what the tool uses to decide whether it may rule at all.
 var lastWaterCode = ee.ImageCollection('JRC/GSW1_4/YearlyHistory').map(function(im){
   var y = ee.Number(ee.Date(im.get('system:time_start')).get('year'));
-  return im.select('waterClass').gte(2).multiply(y.subtract(1983));
+  // The cast and rename are load-bearing. Multiplying a 0/1 mask by a
+  // different year offset per image leaves each image declaring a different
+  // band range - Byte<0,1> for 1984, Byte<0,38> for 2021 - and max() rejects
+  // the collection as heterogeneous. Casting every image to the same type
+  // first is what makes the reduction legal.
+  return im.select('waterClass').gte(2).multiply(y.subtract(1983))
+           .toUint8().rename('y');
 }).max().unmask(0).toUint8();
 
 var history = lastWaterCode.rename('r')
