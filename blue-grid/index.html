@@ -2773,7 +2773,10 @@ var CONTRACT = [
  '   Never attribute one to this plot. An answer citing only precedent chunks',
  '   is invalid.',
  '',
- 'Cite chunks inline in square brackets by id, like [outcome.reject.meaning].'
+ 'Cite chunks inline in the narrative in square brackets, like',
+ '[outcome.reject.meaning]. The "cited" array takes the SAME ids with no',
+ 'brackets: ["outcome.reject.meaning"]. Likewise "numbers_used" takes bare',
+ 'fact ids with no braces: ["fact.distPresent"].'
 ].join('\n');
 
 var ANSWER_TOOL = {
@@ -2799,6 +2802,34 @@ var BANNED = [
   /\bwill flood\b/i, /\bprobability of flooding\b/i, /\breturn period of\b/i,
   /\bwill be approved\b/i, /\bis (?:il)?legal\b/i, /\bwe (?:recommend|approve)\b/i
 ];
+
+// The contract asks for bracketed ids inline in the prose and bare ids in the
+// arrays, and a model that reads it quickly carries the bracket convention
+// into the arrays too: cited comes back as ["[outcome.refer.meaning]"] rather
+// than ["outcome.refer.meaning"]. Every id was real and in the pack; only the
+// punctuation was wrong, and the answer was being thrown away for it.
+//
+// Stripping the wrapper is not a loosening of the check. It runs BEFORE
+// validation, so an id that is genuinely absent from the pack is still caught
+// and the answer still withheld — this only stops a formatting habit reading
+// as a fabricated citation.
+function stripWrapper(s){
+  return String(s == null ? '' : s).trim()
+    .replace(/^\[+\s*|\s*\]+$/g, '')      // [id]  -> id
+    .replace(/^\{+\s*|\s*\}+$/g, '')      // {{id}} -> id
+    .trim();
+}
+
+function normalizeAnswer(a){
+  if(!a || typeof a !== 'object') return a;
+  if(Array.isArray(a.cited)) a.cited = a.cited.map(stripWrapper);
+  if(Array.isArray(a.numbers_used)) a.numbers_used = a.numbers_used.map(stripWrapper);
+  if(Array.isArray(a.refused))
+    a.refused.forEach(function(r){
+      if(r && typeof r === 'object') r.chunk = stripWrapper(r.chunk);
+    });
+  return a;
+}
 
 function validateAnswer(a, pack){
   if(!a || typeof a !== 'object') return 'the model returned nothing usable';
@@ -3039,7 +3070,7 @@ function ask(question, ctxOverride){
         + res.unavailable + '.', false);
       return;
     }
-    var bad = validateAnswer(res, pack);
+    var bad = validateAnswer(normalizeAnswer(res), pack);
     if(bad){
       // A rejected model answer is reported, not hidden. The officer is
       // entitled to know the machine said something the tool would not stand
