@@ -4,7 +4,7 @@ kind: limit
 tags: ["route", "trace", "limit", "drain", "network", "pipes", "downstream", "not a flood", "receiving"]
 authority: repo-derived
 source: index.html, traceDownstream and the downstream panel
-repo_ref: index.html#L1893-L1924
+repo_ref: index.html#L2000-L2152
 when: [["routeTraced", "eq", true]]
 intents: ["consequence", "evidence", "flood"]
 ---

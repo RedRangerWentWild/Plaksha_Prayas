@@ -100,6 +100,9 @@
   --lyr-encroached:#e0392e;  /* built on former water */
   --lyr-flowpath:#3b3f9e;    /* drainage line — dark, thin, a channel */
   --lyr-floodprone:#a78bfa;  /* low ground — pale, large, a wash */
+  /* Not a layer. The mark pinned on ground the traced runoff reaches, kept
+     clear of the lost-water amber by being much lighter as well as greener. */
+  --mark-yellow:#ffd60a;
 
   --mono:'Geist Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
   --sans:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;
@@ -608,6 +611,15 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 .sw.ghost::after{content:'';position:absolute;inset:1px;border-radius:2px;
   background:var(--lyr-historic);opacity:.22}
 .sw.line{height:4px;margin-top:5px;border-radius:2px}
+/* The receiving-ground mark, drawn the way the map draws it: two crossed bars
+   with a dark casing, so the swatch is the thing it stands for rather than a
+   coloured square standing in for it. */
+.sw.cross{background:none!important;box-shadow:none;position:relative}
+.sw.cross::before,.sw.cross::after{content:'';position:absolute;left:50%;top:0;
+  bottom:0;width:2.5px;margin-left:-1.25px;border-radius:2px;
+  background:var(--mark-yellow);box-shadow:0 0 0 1px rgba(11,14,20,.5)}
+.sw.cross::before{transform:rotate(45deg)}
+.sw.cross::after{transform:rotate(-45deg)}
 
 /* ---- basemap switch ---- */
 #basePill{position:absolute;right:var(--pad);bottom:var(--dock-gap);z-index:22;
@@ -1190,6 +1202,28 @@ map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-ri
 
 function corners(b){ return [[b[0],b[3]],[b[2],b[3]],[b[2],b[1]],[b[0],b[1]]]; }
 
+// An X, cast to the ImageData MapLibre's addImage wants. Two strokes per arm:
+// a dark casing first, then the yellow over it, so the mark holds its shape on
+// a white street and on a dark rooftop without changing colour between them.
+var CROSS_YELLOW = '#ffd60a';
+function crossIcon(ratio){
+  var S = 22 * ratio, pad = 4 * ratio;
+  var c = document.createElement('canvas');
+  c.width = c.height = S;
+  var g = c.getContext('2d');
+  g.lineCap = 'round';
+  [[ 'rgba(11,14,20,.92)', 5.5 * ratio ], [ CROSS_YELLOW, 2.6 * ratio ]]
+    .forEach(function(pass){
+      g.strokeStyle = pass[0]; g.lineWidth = pass[1];
+      g.beginPath();
+      g.moveTo(pad, pad);         g.lineTo(S - pad, S - pad);
+      g.moveTo(S - pad, pad);     g.lineTo(pad, S - pad);
+      g.stroke();
+    });
+  var d = g.getImageData(0, 0, S, S);
+  return {width: S, height: S, data: d.data};
+}
+
 // Mean of the outer ring. Crude, and correct enough for a footprint this size
 // against a 6.36 m pixel. Third caller, so it stops being written out inline.
 function centroidOf(f){
@@ -1273,11 +1307,23 @@ map.on('load', function(){
   // The cells that carry the most catchment, sized by nothing — rank is
   // already conveyed by the panel, and a graduated symbol here would imply a
   // magnitude this layer does not measure at a point.
-  map.addLayer({id:'route-pt', type:'circle', source:'route',
+  // The ground that receives the runoff is marked with a cross, not a dot.
+  // Everything else on this map is an area — a wash, a hatch, a line — so a
+  // mark that is none of those reads as an annotation pinned to a place rather
+  // than as another layer of data. Yellow because nothing else here is: the
+  // lost-water amber is the nearest, and a cross at this lightness separates
+  // from it by value as well as by shape.
+  //
+  // Drawn rather than loaded: a symbol layer needs no glyph server for an icon
+  // (text would), and an inline data URI for four pixels of geometry is worse
+  // than the twelve lines that draw it. The dark casing is what keeps it
+  // legible over both the pale basemap and satellite imagery.
+  map.addImage('affected-ground', crossIcon(2), {pixelRatio: 2});
+  map.addLayer({id:'route-pt', type:'symbol', source:'route',
     filter:['==','$type','Point'],
-    paint:{'circle-radius':4.5,'circle-color':PALETTE.flowpath,
-           'circle-stroke-color':'#fff','circle-stroke-width':2,
-           'circle-opacity':0,'circle-stroke-opacity':0}});
+    layout:{'icon-image':'affected-ground', 'icon-allow-overlap':true,
+            'icon-ignore-placement':true, 'icon-size':1},
+    paint:{'icon-opacity':0}});
 
   // The veil over everything outside the study area goes on LAST, above the
   // basemap's own street labels. Underneath them it left place names floating
@@ -1723,8 +1769,7 @@ function update(){
               && state.lastCheck.ctx.route.traced) ? 1 : 0;
     map.setPaintProperty('route-casing','line-opacity', ro * .85);
     map.setPaintProperty('route-line','line-opacity', ro);
-    map.setPaintProperty('route-pt','circle-opacity', ro);
-    map.setPaintProperty('route-pt','circle-stroke-opacity', ro);
+    map.setPaintProperty('route-pt','icon-opacity', ro);
   }
   function set(id,v){ if(map.getLayer(id)) map.setPaintProperty(id,'raster-opacity',v); }
 }
@@ -2732,6 +2777,7 @@ function drawRoute(route){
   }
   map.getSource('route').setData({type:'FeatureCollection', features: f});
   update();
+  renderLegend();
 }
 
 function checkPlot(lngLat){
@@ -4414,7 +4460,12 @@ var LEGEND_ROWS = {
   present:      {sw:'',      b:'Water today',             i:'JRC \u00b7 2000\u201321'},
   encroached:   {sw:'',      b:'Built on former water',   i:'Dynamic World \u00d7 JRC'},
   flowpath:     {sw:'',      b:'Natural drainage path',   i:'MERIT Hydro \u00b7 > 2 km\u00b2'},
-  floodprone:   {sw:'',      b:'Low ground, floods',      i:'< 2 m above drainage'}
+  floodprone:   {sw:'',      b:'Low ground, floods',      i:'< 2 m above drainage'},
+  // Only ever appended when a route is actually on screen — see renderLegend.
+  routeLine:    {sw:'line',  b:'Where this water goes',   i:'traced from the plot',
+                 c:'#2f3391'},
+  routeMark:    {sw:'cross', b:'Ground that receives it', i:'ranked by catchment',
+                 c:CROSS_YELLOW}
 };
 
 var LEGEND_FOR = {
@@ -4431,14 +4482,25 @@ var LEGEND_TITLE = {
 };
 
 function renderLegend(){
-  var m = state.mode, keys = LEGEND_FOR[m] || LEGEND_FOR.timeline;
+  var m = state.mode, keys = (LEGEND_FOR[m] || LEGEND_FOR.timeline).slice();
+
+  // The route is not a layer, it is an answer to a click, so it enters the key
+  // only while one is on screen. A key that lists a mark the map is not making
+  // teaches the reader to distrust the key — which is the same reason the three
+  // mode-specific lists exist at all.
+  var ck = state.lastCheck;
+  if(m !== 'timeline' && ck && ck.ctx && ck.ctx.route && ck.ctx.route.traced){
+    keys.push('routeLine');
+    if(ck.ctx.route.receiving.length) keys.push('routeMark');
+  }
+
   document.getElementById('legend').innerHTML =
     '<div class="lhead"><span class="lbl">' + esc(LEGEND_TITLE[m] || 'Map key')
       + '</span></div>' +
     '<div class="lbody">' + keys.map(function(k){
       var r = LEGEND_ROWS[k];
       return '<div class="key"><span class="sw ' + r.sw + '" style="background:'
-        + PALETTE[k] + '"></span><span><b>' + r.b + '</b><i>' + r.i
+        + (r.c || PALETTE[k]) + '"></span><span><b>' + r.b + '</b><i>' + r.i
         + '</i></span></div>';
     }).join('') + '</div>';
 }

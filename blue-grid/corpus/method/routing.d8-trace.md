@@ -4,7 +4,7 @@ kind: method
 tags: ["route", "trace", "downstream", "where does it go", "path", "d8", "step", "receiving", "who pays"]
 authority: repo-derived
 source: index.html, traceDownstream
-repo_ref: index.html#L2005-L2107
+repo_ref: index.html#L2050-L2152
 asserts: {"routeStepM": {"v": 90, "u": "m"}, "routeMaxSteps": {"v": 200}, "routeCorridorM": {"v": 150, "u": "m"}}
 when: [["routeTraced", "eq", true]]
 intents: ["consequence", "evidence"]

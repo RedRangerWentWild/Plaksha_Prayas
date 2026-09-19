@@ -4,7 +4,7 @@ kind: hydro
 tags: ["retention", "neutrality", "hold", "requirement", "offset", "mitigation", "how much storage", "sizing"]
 authority: repo-derived
 source: index.html, the retention arithmetic in siteContext
-repo_ref: index.html#L2154-L2217
+repo_ref: index.html#L2199-L2262
 when: [["retentionRequiredM3", "notnull"]]
 intents: ["flood", "consequence", "procedure"]
 ---
