@@ -42,6 +42,14 @@ GEMINI_API = ('https://generativelanguage.googleapis.com/v1beta/models/'
 
 GROQ_API = 'https://api.groq.com/openai/v1/chat/completions'
 
+# urllib announces itself as "Python-urllib/3.x" unless told otherwise, and
+# Cloudflare — which fronts Groq — bans that signature outright: the request
+# never reaches the API and comes back as a 403 carrying a plaintext
+# "error code: 1010", which is an edge rejection wearing the costume of a
+# provider error. Any ordinary agent string gets through. Identifying the
+# tool honestly is the right thing to send anyway.
+USER_AGENT = 'vanished-blue-grid/1.0 (satellite screening tool; python-urllib)'
+
 PROVIDERS = ('anthropic', 'gemini', 'groq')
 KEY_VAR = {'anthropic': 'ANTHROPIC_API_KEY', 'gemini': 'GEMINI_API_KEY',
            'groq': 'GROQ_API_KEY'}
@@ -246,23 +254,22 @@ def build_request(payload):
 def upstream_request(payload):
     """The provider-shaped HTTP request, key included."""
     body = json.dumps(build_request(payload)).encode()
+    # Common to all three, and the User-Agent is not decoration: see the note
+    # on USER_AGENT. It is set here, once, so a fourth provider cannot be
+    # added without it.
+    headers = {'content-type': 'application/json', 'user-agent': USER_AGENT}
     if provider() == 'groq':
-        return urllib.request.Request(
-            GROQ_API, data=body,
-            headers={'content-type': 'application/json',
-                     'authorization': 'Bearer %s' % key()})
+        headers['authorization'] = 'Bearer %s' % key()
+        return urllib.request.Request(GROQ_API, data=body, headers=headers)
     if provider() == 'gemini':
         # Gemini takes the key in a header too, which keeps it out of the URL
         # and therefore out of any proxy or server log along the way.
-        return urllib.request.Request(
-            GEMINI_API % model(), data=body,
-            headers={'content-type': 'application/json',
-                     'x-goog-api-key': key()})
-    return urllib.request.Request(
-        ANTHROPIC_API, data=body,
-        headers={'content-type': 'application/json',
-                 'x-api-key': key(),
-                 'anthropic-version': '2023-06-01'})
+        headers['x-goog-api-key'] = key()
+        return urllib.request.Request(GEMINI_API % model(), data=body,
+                                      headers=headers)
+    headers['x-api-key'] = key()
+    headers['anthropic-version'] = '2023-06-01'
+    return urllib.request.Request(ANTHROPIC_API, data=body, headers=headers)
 
 
 def upstream_message(detail):
@@ -276,7 +283,13 @@ def upstream_message(detail):
     try:
         err = json.loads(detail).get('error')
     except (ValueError, AttributeError):
-        return detail.strip()
+        # Not JSON at all. A provider error always is, so this is an edge or
+        # proxy in front of the provider answering on its behalf — a different
+        # fault with a different fix, and worth saying so rather than handing
+        # back an opaque fragment of an HTML page.
+        flat = ' '.join(detail.split())
+        return ('blocked before it reached the provider (%s)' % flat[:120]
+                if flat else 'no detail')
     if isinstance(err, dict):
         return err.get('message') or err.get('status') or detail.strip()
     return str(err) if err else detail.strip()
