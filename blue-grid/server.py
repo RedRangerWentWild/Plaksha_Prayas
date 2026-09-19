@@ -15,11 +15,12 @@ Usage:
     python3 server.py                          # no model, offline answers only
     ANTHROPIC_API_KEY=... python3 server.py    # Claude
     GEMINI_API_KEY=... python3 server.py       # Gemini
-    VBG_PROVIDER=gemini VBG_MODEL=gemini-2.5-pro GEMINI_API_KEY=... python3 server.py
+    GROQ_API_KEY=... python3 server.py         # Groq
+    VBG_PROVIDER=groq VBG_MODEL=openai/gpt-oss-20b GROQ_API_KEY=... python3 server.py
     python3 server.py --port 8000 --host 0.0.0.0
 
 The provider follows VBG_PROVIDER, or whichever key is present. Retrieval,
-the arithmetic and the verdict never involve either one: without a key the
+the arithmetic and the verdict never involve any of them: without a key the
 page answers from the corpus alone, which is the supported default.
 """
 import argparse
@@ -39,7 +40,18 @@ ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 GEMINI_API = ('https://generativelanguage.googleapis.com/v1beta/models/'
               '%s:generateContent')
 
-DEFAULT_MODEL = {'anthropic': 'claude-opus-5', 'gemini': 'gemini-3.5-flash'}
+GROQ_API = 'https://api.groq.com/openai/v1/chat/completions'
+
+PROVIDERS = ('anthropic', 'gemini', 'groq')
+KEY_VAR = {'anthropic': 'ANTHROPIC_API_KEY', 'gemini': 'GEMINI_API_KEY',
+           'groq': 'GROQ_API_KEY'}
+# Groq's json_schema structured output is honoured by only some of the models
+# it serves, and strict mode by fewer still, so the default is one that
+# supports it rather than the fastest thing on the menu. A model that ignores
+# the schema answers in prose, which the client then rejects as a failed
+# validation — a configuration mistake wearing the costume of a bad answer.
+DEFAULT_MODEL = {'anthropic': 'claude-opus-5', 'gemini': 'gemini-3.5-flash',
+                 'groq': 'openai/gpt-oss-120b'}
 MAX_BODY = 1 << 20          # an evidence pack is a few KB; this is generous
 
 # Both defaults now think before they answer, and thinking is drawn from the
@@ -61,24 +73,21 @@ UPSTREAM_TIMEOUT = 25
 
 def key():
     """The configured key, or '' when the server runs answer-less on purpose."""
-    return os.environ.get(
-        'ANTHROPIC_API_KEY' if provider() == 'anthropic' else 'GEMINI_API_KEY',
-        '').strip()
+    return os.environ.get(KEY_VAR[provider()], '').strip()
 
 
 def provider():
     """Which API to call. Explicit setting wins, otherwise whichever key exists.
 
-    Anthropic is preferred on a tie only because it was here first; nothing in
-    the pipeline depends on the choice.
+    The order on a tie is the order they were added and nothing more; no part
+    of the pipeline depends on the choice.
     """
     p = os.environ.get('VBG_PROVIDER', '').strip().lower()
-    if p in ('anthropic', 'gemini'):
+    if p in PROVIDERS:
         return p
-    if os.environ.get('ANTHROPIC_API_KEY', '').strip():
-        return 'anthropic'
-    if os.environ.get('GEMINI_API_KEY', '').strip():
-        return 'gemini'
+    for name in PROVIDERS:
+        if os.environ.get(KEY_VAR[name], '').strip():
+            return name
     return 'anthropic'
 
 
@@ -105,6 +114,28 @@ def gemini_schema(node):
         out['required'] = node['required']
     if 'items' in node:
         out['items'] = gemini_schema(node['items'])
+    return out
+
+
+def groq_schema(node):
+    """The same JSON Schema, tightened to what Groq's strict mode demands.
+
+    Strict mode rejects a schema unless every object closes itself with
+    additionalProperties false and lists all of its properties as required.
+    The contract's schema already requires all six top-level fields, so this
+    changes nothing about what the model may return; it only restates it in
+    the form the validator insists on.
+    """
+    if not isinstance(node, dict):
+        return node
+    out = dict(node)
+    if 'properties' in out:
+        out['properties'] = {k: groq_schema(v)
+                             for k, v in out['properties'].items()}
+        out['required'] = list(out['properties'].keys())
+        out['additionalProperties'] = False
+    if 'items' in out:
+        out['items'] = groq_schema(out['items'])
     return out
 
 
@@ -136,6 +167,33 @@ def build_request(payload):
         '<question>%s</question>'
         % (facts, chunks, pack['verdict']['code'], pack['intent'], pack['question'])
     )
+
+    if provider() == 'groq':
+        # OpenAI-shaped, and a response schema rather than a forced tool call:
+        # Groq does not support tool use and json_schema together, so the
+        # schema is the guarantee. Same contract, same validated shape.
+        #
+        # max_completion_tokens, not max_tokens — the reasoning models served
+        # here reject the older field. reasoning_effort is low for the same
+        # reason effort is low on the other two: narrating a fixed evidence
+        # pack under a contract is not a reasoning problem, and the reasoning
+        # comes out of the same completion budget.
+        tool = payload['tool']
+        schema = tool.get('input_schema') or tool.get('parameters') or {}
+        return {
+            'model': model(),
+            'max_completion_tokens': MAX_OUTPUT_TOKENS,
+            'reasoning_effort': 'low',
+            'messages': [
+                {'role': 'system', 'content': payload['contract']},
+                {'role': 'user', 'content': user},
+            ],
+            'response_format': {
+                'type': 'json_schema',
+                'json_schema': {'name': tool['name'], 'strict': True,
+                                'schema': groq_schema(schema)},
+            },
+        }
 
     if provider() == 'gemini':
         # Gemini reaches the same guarantee through a response schema rather
@@ -188,6 +246,11 @@ def build_request(payload):
 def upstream_request(payload):
     """The provider-shaped HTTP request, key included."""
     body = json.dumps(build_request(payload)).encode()
+    if provider() == 'groq':
+        return urllib.request.Request(
+            GROQ_API, data=body,
+            headers={'content-type': 'application/json',
+                     'authorization': 'Bearer %s' % key()})
     if provider() == 'gemini':
         # Gemini takes the key in a header too, which keeps it out of the URL
         # and therefore out of any proxy or server log along the way.
@@ -228,6 +291,32 @@ def structured_answer(out):
     old version returned a bare None, so every one of these failures reached
     the officer as the same sentence and reached the log as nothing at all.
     """
+    if provider() == 'groq':
+        choices = out.get('choices', [])
+        if not choices:
+            return None, 'the model returned no choices'
+        top = choices[0]
+        text = (top.get('message') or {}).get('content')
+        stop = top.get('finish_reason') or 'unknown'
+        if not text:
+            if stop == 'length':
+                return None, ('the model used its whole completion budget '
+                              'before answering (finish_reason length) — '
+                              'raise MAX_OUTPUT_TOKENS')
+            return None, 'the model returned no content (finish_reason %s)' % stop
+        try:
+            return json.loads(text), None
+        except ValueError:
+            if stop == 'length':
+                return None, ('the reply was cut off mid-JSON (finish_reason '
+                              'length) — raise MAX_OUTPUT_TOKENS')
+            # A model that does not honour json_schema replies in prose. That
+            # is a configuration fault, and naming it here stops the client
+            # reporting it as a failed validation of a shape the model was
+            # never actually asked for.
+            return None, ('the model returned text that is not JSON — %s may '
+                          'not support structured outputs' % model())
+
     if provider() == 'gemini':
         cands = out.get('candidates', [])
         if not cands:
@@ -312,8 +401,7 @@ class Handler(SimpleHTTPRequestHandler):
             # First-class state, not a failure. The client renders its own
             # answer before it ever calls here.
             self._json(503, {'reason': 'no %s set on the server'
-                             % ('ANTHROPIC_API_KEY' if provider() == 'anthropic'
-                                else 'GEMINI_API_KEY')})
+                             % KEY_VAR[provider()]})
             return
         if raw is None:
             self._json(400, {'reason': 'bad request size'})

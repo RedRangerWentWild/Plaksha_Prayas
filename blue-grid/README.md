@@ -59,6 +59,8 @@ it against the code it describes and refuses to pass if the two have drifted.
 ```
 python3 server.py                          # answers stay local
 ANTHROPIC_API_KEY=... python3 server.py    # answers get a model
+GEMINI_API_KEY=... python3 server.py       # or Gemini
+GROQ_API_KEY=... python3 server.py         # or Groq
 ```
 
 `file://` will not work — the browser blocks local image sources over CORS.
@@ -205,7 +207,16 @@ know the machine said something the tool would not stand behind.
 | **2** | A validation failure reverts to tier 0 and says why. |
 
 Pull the network cable and the page behaves identically, minus one paragraph.
-Starting `server.py` with no `ANTHROPIC_API_KEY` is a supported way to run it:
+Three providers are wired, and the provider follows `VBG_PROVIDER` or
+whichever key is present; `VBG_MODEL` overrides the default model. Anthropic
+gets the answer through a forced tool call, Gemini and Groq through a response
+schema — the same contract and the same validated shape either way, because
+the client validates what comes back rather than trusting how it was asked
+for. On Groq the default is `openai/gpt-oss-120b`: `json_schema` output is
+only honoured by some of the models Groq serves, and one that ignores it
+answers in prose that the client then rejects.
+
+Starting `server.py` with no key at all is a supported way to run it:
 `/ask` answers 503 and the page stays on the answer it has already rendered.
 
 ### What it refuses
