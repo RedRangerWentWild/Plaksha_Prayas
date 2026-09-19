@@ -41,7 +41,22 @@ GEMINI_API = ('https://generativelanguage.googleapis.com/v1beta/models/'
 
 DEFAULT_MODEL = {'anthropic': 'claude-opus-5', 'gemini': 'gemini-2.5-flash'}
 MAX_BODY = 1 << 20          # an evidence pack is a few KB; this is generous
-UPSTREAM_TIMEOUT = 8        # matches the client's AbortController
+
+# Both defaults now think before they answer, and thinking is drawn from the
+# SAME output budget as the reply. At the 900 this used to send, a reasoning
+# model could spend the entire allowance thinking and return a truncated
+# message carrying no tool call at all — which arrived here as
+# "the model did not return a structured answer", a message that named the
+# symptom and hid the cause. The answer itself is ~180 words plus four short
+# arrays, so the generous ceiling costs nothing when it is not used: billing
+# is on tokens produced, not on the cap.
+MAX_OUTPUT_TOKENS = 8000
+
+# Thinking also takes wall-clock. Eight seconds was never a budget a reasoning
+# model could meet, and the deadline is nearly free here: tier 0 is already on
+# screen before this request is made, so a slow model costs the reader nothing
+# but a late paragraph.
+UPSTREAM_TIMEOUT = 25
 
 
 def key():
@@ -131,17 +146,26 @@ def build_request(payload):
             'contents': [{'role': 'user', 'parts': [{'text': user}]}],
             'generationConfig': {
                 'temperature': 0,
-                'maxOutputTokens': 900,
+                'maxOutputTokens': MAX_OUTPUT_TOKENS,
                 'responseMimeType': 'application/json',
                 'responseSchema': gemini_schema(
                     tool.get('input_schema') or tool.get('parameters') or {}),
             },
         }
 
+    # No temperature, top_p or top_k: sampling parameters are rejected outright
+    # with a 400 on Opus 5 and the rest of the 4.7-and-later family.
+    #
+    # No explicit thinking block either. Thinking is on by default on Opus 5,
+    # and it is deliberately left on: with thinking disabled these models will
+    # occasionally write the tool call into visible prose instead of emitting a
+    # tool_use block, which is precisely the failure this endpoint must not
+    # have. Effort is turned down instead — narrating an evidence pack under a
+    # contract is not a reasoning problem, and low effort buys back the latency.
     return {
         'model': model(),
-        'max_tokens': 900,
-        'temperature': 0,
+        'max_tokens': MAX_OUTPUT_TOKENS,
+        'output_config': {'effort': 'low'},
         'system': [
             {'type': 'text', 'text': payload['contract'],
              'cache_control': {'type': 'ephemeral'}},
@@ -172,22 +196,46 @@ def upstream_request(payload):
 def structured_answer(out):
     """Pull the one structured object out, whatever shape the provider used.
 
-    Only this crosses back to the page. Forwarding a whole response would hand
-    the client fields it has no business reading.
+    Returns (answer, why_not). Only the answer crosses back to the page —
+    forwarding a whole response would hand the client fields it has no business
+    reading — but a failure has to say what actually came back instead. The
+    old version returned a bare None, so every one of these failures reached
+    the officer as the same sentence and reached the log as nothing at all.
     """
     if provider() == 'gemini':
-        for cand in out.get('candidates', []):
+        cands = out.get('candidates', [])
+        if not cands:
+            fb = (out.get('promptFeedback') or {}).get('blockReason')
+            return None, ('the request was blocked upstream: %s' % fb if fb
+                          else 'the model returned no candidates')
+        for cand in cands:
             for part in cand.get('content', {}).get('parts', []):
                 if 'text' in part:
                     try:
-                        return json.loads(part['text'])
+                        return json.loads(part['text']), None
                     except ValueError:
-                        return None
-        return None
-    for block in out.get('content', []):
+                        return None, 'the model returned text that is not JSON'
+        reason = cands[0].get('finishReason') or 'unknown'
+        if reason == 'MAX_OUTPUT_TOKENS' or reason == 'MAX_TOKENS':
+            return None, ('the model used its whole output budget before '
+                          'answering (finishReason MAX_TOKENS) — raise '
+                          'MAX_OUTPUT_TOKENS')
+        return None, 'the model returned no text part (finishReason %s)' % reason
+
+    blocks = out.get('content', [])
+    for block in blocks:
         if block.get('type') == 'tool_use':
-            return block.get('input') or {}
-    return None
+            return block.get('input') or {}, None
+    kinds = ', '.join(sorted({b.get('type', '?') for b in blocks})) or 'nothing'
+    stop = out.get('stop_reason') or 'unknown'
+    if stop == 'max_tokens':
+        return None, ('the model used its whole output budget before calling '
+                      'the tool (stop_reason max_tokens, returned %s) — raise '
+                      'MAX_OUTPUT_TOKENS' % kinds)
+    if stop == 'refusal':
+        return None, 'the model declined the request (stop_reason refusal)'
+    return None, ('no tool call in the reply (stop_reason %s, returned %s)'
+                  % (stop, kinds))
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -268,9 +316,12 @@ class Handler(SimpleHTTPRequestHandler):
             self._json(502, {'reason': 'the model API could not be reached'})
             return
 
-        answer = structured_answer(out)
+        answer, why_not = structured_answer(out)
         if answer is None:
-            self._json(502, {'reason': 'the model did not return a structured answer'})
+            # Named on the page and in the log. A failure the operator cannot
+            # diagnose from either one is a failure they will re-run forever.
+            sys.stderr.write('no structured answer: %s\n' % why_not)
+            self._json(502, {'reason': why_not})
             return
         self._json(200, answer)
 
