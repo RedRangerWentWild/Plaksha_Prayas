@@ -1,5 +1,5 @@
 /**
- * THE VANISHED BLUE GRID — Earth Engine extraction, v2
+ * BLUETRACE — Earth Engine extraction, v2
  *
  * Paste into https://code.earthengine.google.com and press Run.
  * Then set CITY to the other entry and Run again.

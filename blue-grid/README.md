@@ -1,4 +1,4 @@
-# The Vanished Blue Grid
+# BlueTrace
 
 Reconstructs a city's lost water bodies from the satellite record, then flags the
 buildings sitting on them and the low ground that floods as a result.
@@ -460,8 +460,8 @@ know the machine said something the tool would not stand behind.
 | **2** | A validation failure reverts to tier 0 and says why. |
 
 Pull the network cable and the page behaves identically, minus one paragraph.
-Three providers are wired, and the provider follows `VBG_PROVIDER` or
-whichever key is present; `VBG_MODEL` overrides the default model. Anthropic
+Three providers are wired, and the provider follows `BLUETRACE_PROVIDER` or
+whichever key is present; `BLUETRACE_MODEL` overrides the default model. Anthropic
 gets the answer through a forced tool call, Gemini and Groq through a response
 schema — the same contract and the same validated shape either way, because
 the client validates what comes back rather than trusting how it was asked

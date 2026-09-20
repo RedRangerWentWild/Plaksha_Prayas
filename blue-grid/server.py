@@ -16,10 +16,10 @@ Usage:
     ANTHROPIC_API_KEY=... python3 server.py    # Claude
     GEMINI_API_KEY=... python3 server.py       # Gemini
     GROQ_API_KEY=... python3 server.py         # Groq
-    VBG_PROVIDER=groq VBG_MODEL=openai/gpt-oss-20b GROQ_API_KEY=... python3 server.py
+    BLUETRACE_PROVIDER=groq BLUETRACE_MODEL=openai/gpt-oss-20b GROQ_API_KEY=... python3 server.py
     python3 server.py --port 8000 --host 0.0.0.0
 
-The provider follows VBG_PROVIDER, or whichever key is present. Retrieval,
+The provider follows BLUETRACE_PROVIDER, or whichever key is present. Retrieval,
 the arithmetic and the verdict never involve any of them: without a key the
 page answers from the corpus alone, which is the supported default.
 """
@@ -90,7 +90,7 @@ def provider():
     The order on a tie is the order they were added and nothing more; no part
     of the pipeline depends on the choice.
     """
-    p = os.environ.get('VBG_PROVIDER', '').strip().lower()
+    p = os.environ.get('BLUETRACE_PROVIDER', '').strip().lower()
     if p in PROVIDERS:
         return p
     for name in PROVIDERS:
@@ -100,7 +100,7 @@ def provider():
 
 
 def model():
-    return os.environ.get('VBG_MODEL', '').strip() or DEFAULT_MODEL[provider()]
+    return os.environ.get('BLUETRACE_MODEL', '').strip() or DEFAULT_MODEL[provider()]
 
 
 def gemini_schema(node):

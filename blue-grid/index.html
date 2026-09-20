@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vanished Blue Grid</title>
+<title>BlueTrace</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <style>
 /* ===========================================================================
-   VANISHED BLUE GRID — DESIGN SYSTEM
+   BLUETRACE — DESIGN SYSTEM
    ---------------------------------------------------------------------------
    The skin before this one was a dark instrument: near-black panels, one blue
    accent, everything the same weight. It read as generic because every choice
@@ -843,7 +843,7 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
       </svg>
     </span>
     <span class="txt">
-      <b>Vanished Blue Grid</b>
+      <b>BlueTrace</b>
       <i>Encroachment screening</i>
     </span>
   </div>
@@ -3033,8 +3033,13 @@ function fnv1a(str){
 function nextSeq(){
   var n = 1;
   try {
-    n = (parseInt(localStorage.getItem('vbg_seq'), 10) || 0) + 1;
-    localStorage.setItem('vbg_seq', n);
+    // Carried over from the key this used before the rename, so a desk that
+    // has already issued certificates keeps counting rather than restarting
+    // at one and reusing reference numbers that are already on paper.
+    var prev = localStorage.getItem('bluetrace_seq');
+    if(prev === null) prev = localStorage.getItem('vbg_seq');
+    n = (parseInt(prev, 10) || 0) + 1;
+    localStorage.setItem('bluetrace_seq', n);
   } catch(e){}
   return n;
 }
@@ -3073,7 +3078,7 @@ function renderCertificate(ck, snap){
     (ans ? ans.answer.generator : 'none'),
     (ans ? ans.pack.chunks.map(function(x){ return x.id; }).join(',') : '')
     ].join('|');
-  var ref = 'VBG/BLR/' + iso.slice(0,10).replace(/-/g,'') + '/'
+  var ref = 'BT/BLR/' + iso.slice(0,10).replace(/-/g,'') + '/'
           + String(nextSeq()).padStart(4,'0') + '-' + fnv1a(canon);
 
   function rows(pairs){
