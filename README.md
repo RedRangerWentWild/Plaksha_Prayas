@@ -21,8 +21,8 @@ number carries the source it came from.
 > ### ▶ Live
 > **[Open the screening tool](https://bluetrace-1oys.onrender.com)** — the real map, timeline, plot check, downstream routing, retention and certificate, with a model behind the ask box.
 >
-> **[Interactive explainer](https://redrangerwentwild.github.io/Plaksha_Prayas/)** — the layers below, rotatable in 3D, with an era slider.
-> **[Static copy of the tool](https://redrangerwentwild.github.io/Plaksha_Prayas/blue-grid/)** — identical, minus the one paragraph a model writes.
+> **[Static copy of the tool](https://redrangerwentwild.github.io/Plaksha_Prayas/)** — identical, minus the one paragraph a model writes.
+> **[Interactive explainer](https://redrangerwentwild.github.io/Plaksha_Prayas/explainer.html)** — the layers below, rotatable in 3D, with an era slider.
 >
 > <sub>The Render free plan sleeps when idle; the first request in an hour takes about a minute to wake. Nothing breaks meanwhile — a slow or absent `/ask` is a supported state, and the answer is composed locally until it returns.</sub>
 
