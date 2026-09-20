@@ -712,15 +712,26 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 .sw.ghost::after{content:'';position:absolute;inset:1px;border-radius:2px;
   background:var(--lyr-historic);opacity:.22}
 .sw.line{height:4px;margin-top:5px;border-radius:2px}
-/* The receiving-ground mark, drawn the way the map draws it: two crossed bars
-   with a dark casing, so the swatch is the thing it stands for rather than a
-   coloured square standing in for it. */
-.sw.cross{background:none!important;box-shadow:none;position:relative}
-.sw.cross::before,.sw.cross::after{content:'';position:absolute;left:50%;top:0;
-  bottom:0;width:2.5px;margin-left:-1.25px;border-radius:2px;
-  background:var(--mark-yellow);box-shadow:0 0 0 1px rgba(11,14,20,.5)}
-.sw.cross::before{transform:rotate(45deg)}
-.sw.cross::after{transform:rotate(-45deg)}
+/* The receiving-ground mark, drawn the way the map draws it — a numbered disc
+   — so the key shows the thing itself rather than a coloured square standing
+   in for it. The "1" is not decoration: the marks are numbered and the panel
+   lists the same numbers, and the key is where a reader finds that out. */
+.sw.recv{width:13px;height:13px;margin-top:0;border-radius:50%;
+  background:var(--mark-yellow)!important;box-shadow:0 0 0 1.5px rgba(11,14,20,.85);
+  position:relative}
+.sw.recv::after{content:'1';position:absolute;inset:0;display:grid;place-items:center;
+  font:700 8px/1 var(--mono);color:#0b0e14}
+
+/* The mark's own answer to "what is this". */
+.recv-pop .maplibregl-popup-content{padding:9px 11px;border-radius:var(--r-sm);
+  background:var(--card);box-shadow:var(--sh-2);border:1px solid var(--line-hot);
+  max-width:216px}
+.recv-pop .maplibregl-popup-tip{display:none}
+.recv-pop b{display:block;font:600 9.5px/1.3 var(--mono);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.recv-pop i{display:block;font-style:normal;font:400 12px/1.5 var(--sans);color:var(--ink)}
+.recv-pop em{display:block;font-style:normal;font:500 10.5px/1.5 var(--mono);
+  color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
 
 /* ---- still decoding ----
    The boot screen comes down when the map has something to draw, but the
@@ -1477,24 +1488,34 @@ map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-ri
 
 function corners(b){ return [[b[0],b[3]],[b[2],b[3]],[b[2],b[1]],[b[0],b[1]]]; }
 
-// An X, cast to the ImageData MapLibre's addImage wants. Two strokes per arm:
-// a dark casing first, then the yellow over it, so the mark holds its shape on
-// a white street and on a dark rooftop without changing colour between them.
+// The receiving-ground mark.
+//
+// This used to be an X, and an X is the wrong glyph for it twice over. It is
+// the mark for wrong, delete and close, so on ground that RECEIVES water it
+// reads as a prohibition — and three identical crosses said nothing about
+// which was which, while the panel beside them listed the same three places
+// as 1, 2 and 3. Someone meeting the map for the first time had no way to
+// learn what the marks were or to match them to anything.
+//
+// A numbered disc fixes both: a number is not a judgement, and it is the same
+// number the list uses. The dark ring is what keeps it legible over a white
+// street and a dark rooftop without changing colour between them.
 var CROSS_YELLOW = '#ffd60a';
-function crossIcon(ratio){
-  var S = 22 * ratio, pad = 4 * ratio;
+function receivingIcon(rank, ratio){
+  var S = 26 * ratio, r = 9 * ratio, mid = S / 2;
   var c = document.createElement('canvas');
   c.width = c.height = S;
   var g = c.getContext('2d');
-  g.lineCap = 'round';
-  [[ 'rgba(11,14,20,.92)', 5.5 * ratio ], [ CROSS_YELLOW, 2.6 * ratio ]]
-    .forEach(function(pass){
-      g.strokeStyle = pass[0]; g.lineWidth = pass[1];
-      g.beginPath();
-      g.moveTo(pad, pad);         g.lineTo(S - pad, S - pad);
-      g.moveTo(S - pad, pad);     g.lineTo(pad, S - pad);
-      g.stroke();
-    });
+
+  g.beginPath(); g.arc(mid, mid, r, 0, Math.PI * 2);
+  g.fillStyle = CROSS_YELLOW; g.fill();
+  g.lineWidth = 2.4 * ratio; g.strokeStyle = 'rgba(11,14,20,.92)'; g.stroke();
+
+  g.fillStyle = '#0b0e14';
+  g.font = '700 ' + (11 * ratio) + 'px ui-monospace, SFMono-Regular, Menlo, monospace';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(String(rank), mid, mid + 0.5 * ratio);
+
   var d = g.getImageData(0, 0, S, S);
   return {width: S, height: S, data: d.data};
 }
@@ -1599,12 +1620,37 @@ map.on('load', function(){
   // (text would), and an inline data URI for four pixels of geometry is worse
   // than the twelve lines that draw it. The dark casing is what keeps it
   // legible over both the pale basemap and satellite imagery.
-  map.addImage('affected-ground', crossIcon(2), {pixelRatio: 2});
+  [1, 2, 3].forEach(function(n){
+    map.addImage('recv-' + n, receivingIcon(n, 2), {pixelRatio: 2});
+  });
   map.addLayer({id:'route-pt', type:'symbol', source:'route',
     filter:['==','$type','Point'],
-    layout:{'icon-image':'affected-ground', 'icon-allow-overlap':true,
+    layout:{'icon-image':['concat', 'recv-', ['to-string', ['get', 'rank']]],
+            'icon-allow-overlap':true,
             'icon-ignore-placement':true, 'icon-size':1},
     paint:{'icon-opacity':0}});
+
+  // A mark on a map that cannot say what it is has to be asked, and the only
+  // question anyone asks of it is "what is this". Hovering answers in the
+  // words the panel uses, so the two are learnt together.
+  var recvPop = new maplibregl.Popup({closeButton:false, closeOnClick:false,
+                                      offset:14, className:'recv-pop'});
+  map.on('mouseenter', 'route-pt', function(e){
+    map.getCanvas().style.cursor = 'help';
+    var p = e.features[0].properties;
+    var upa = p.upaKm2 === undefined || p.upaKm2 === null ? null : +p.upaKm2;
+    recvPop.setLngLat(e.features[0].geometry.coordinates)
+      .setHTML('<b>Receiving ground ' + p.rank
+        + (state.recvTotal > 1 ? ' of ' + state.recvTotal : '') + '</b>'
+        + '<i>Runoff from the checked plot reaches here.</i>'
+        + (upa === null ? ''
+           : '<em>' + upa + ' km\u00b2 of catchment drains through it</em>'))
+      .addTo(map);
+  });
+  map.on('mouseleave', 'route-pt', function(){
+    map.getCanvas().style.cursor = '';
+    recvPop.remove();
+  });
 
   // The veil over everything outside the study area goes on LAST, above the
   // basemap's own street labels. Underneath them it left place names floating
@@ -2526,9 +2572,22 @@ function traceDownstream(lngLat){
   // Greater than zero, not merely non-null. A cell whose upstream area decodes
   // to nothing has no catchment above it at all — it is a local high, and
   // listing it under "receiving ground" ranked by catchment reads as a bug.
-  out.receiving = cells.filter(function(c){ return c.upaKm2 !== null && c.upaKm2 > 0; })
-    .sort(function(a, c){ return c.upaKm2 - a.upaKm2; })
-    .slice(0, 3);
+  // Ranked by catchment, then cut to the cells that carry a real share of it.
+  //
+  // Taking the top three unconditionally produced a list that looked like
+  // three comparable places and was not: across the study area the leader
+  // carries 80-230 km2 and the next two carry between 0.03 and 4 — one and a
+  // half to four orders of magnitude less. Those are ordinary cells the route
+  // crosses before it joins a trunk, and printing them under "receiving
+  // ground" next to the trunk invites the reader to weigh them against it.
+  //
+  // A tenth of the leader is the floor. Usually that leaves one place, which
+  // is the honest answer: the water goes to the channel, and the channel is
+  // where it matters.
+  var ranked = cells.filter(function(c){ return c.upaKm2 !== null && c.upaKm2 > 0; })
+    .sort(function(a, c){ return c.upaKm2 - a.upaKm2; });
+  var floor = ranked.length ? ranked[0].upaKm2 * 0.10 : 0;
+  out.receiving = ranked.filter(function(c){ return c.upaKm2 >= floor; }).slice(0, 3);
 
   // Flagged structures near the line. Optional, and it says so: the building
   // layer is a separate Earth Engine task and a city may not have run it.
@@ -3164,9 +3223,10 @@ function drawRoute(route){
   if(route && route.traced && route.path.length > 1){
     f.push({type:'Feature', geometry:{type:'LineString', coordinates: route.path},
             properties:{}});
+    state.recvTotal = route.receiving.length;
     route.receiving.forEach(function(c, i){
       f.push({type:'Feature', geometry:{type:'Point', coordinates:[c.lon, c.lat]},
-              properties:{rank: i + 1}});
+              properties:{rank: i + 1, upaKm2: c.upaKm2}});
     });
   }
   map.getSource('route').setData({type:'FeatureCollection', features: f});
@@ -5036,8 +5096,8 @@ var LEGEND_ROWS = {
   // Only ever appended when a route is actually on screen — see renderLegend.
   routeLine:    {sw:'line',  b:'Where this water goes',   i:'traced from the plot',
                  c:'#2f3391'},
-  routeMark:    {sw:'cross', b:'Ground that receives it', i:'ranked by catchment',
-                 c:CROSS_YELLOW}
+  routeMark:    {sw:'recv',  b:'Where the water arrives',
+                 i:'most catchment first', c:CROSS_YELLOW}
 };
 
 var LEGEND_FOR = {
