@@ -4055,6 +4055,10 @@ var ANSWER_TOOL = {
 // the same overreach, so the subject is left unconstrained and the verb is what
 // is matched. Passive voice gets its own clause because that is how the second
 // sentence above evaded the first.
+// Where the copy with a model lives. Only ever shown by the static build, to
+// say which of the two identical-looking deployments the reader is on.
+var FULL_DEPLOYMENT = 'bluetrace-1oys.onrender.com';
+
 var BANNED = [
   /\bmetres? (?:deep|of water)\b/i, /\bwater (?:level|depth) (?:of|will|would)\b/i,
   /\bwill flood\b/i, /\bprobability of flooding\b/i, /\breturn period of\b/i,
@@ -4183,8 +4187,13 @@ function askServer(pack){
       // HTML error page into the notice made the ordinary case look like a
       // fault, so a response that is plainly not ours is named as what it is.
       if(/^\s*<(!doctype|html)/i.test(t))
+        // Two deployments of this app exist and they are visually identical,
+        // so a reader who lands on the static one has no way to tell which
+        // they are looking at. Naming the other is the only part of this
+        // notice that is actionable.
         return {unavailable: 'this copy is served as static files, with no '
-              + 'model endpoint behind it'};
+              + 'model endpoint behind it \u2014 the deployment at '
+              + FULL_DEPLOYMENT + ' answers with a model'};
       return {unavailable: 'the model endpoint answered ' + r.status
             + (t.trim() ? ': ' + t.trim().slice(0,120) : '')}; });
     return r.json();
