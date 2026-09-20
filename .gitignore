@@ -5,4 +5,4 @@ __pycache__/
 # The ranked building layer is a per-run Earth Engine export, not source.
 # It is rebuilt from gee_blue_grid.js and is too large and too volatile to
 # track; the README says how to produce it.
-data/*/flagged_buildings.geojson
+blue-grid/data/*/flagged_buildings.geojson
