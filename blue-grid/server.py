@@ -487,13 +487,21 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
+    # A platform that assigns the port sets PORT, and expects the process to
+    # bind every interface inside its container. That is the signal used here
+    # to tell a deployment apart from someone running this on their laptop:
+    # deployed, the defaults follow the platform and the loopback warning is
+    # noise; local, nothing changes and the default is still loopback.
+    env_port = os.environ.get('PORT')
+    deployed = bool(env_port)
+
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--port', type=int, default=8000)
-    ap.add_argument('--host', default='127.0.0.1',
+    ap.add_argument('--port', type=int, default=int(env_port or 8000))
+    ap.add_argument('--host', default='0.0.0.0' if deployed else '127.0.0.1',
                     help='default loopback; a hall LAN is not a trusted network')
     a = ap.parse_args()
 
-    if a.host not in ('127.0.0.1', 'localhost'):
+    if a.host not in ('127.0.0.1', 'localhost') and not deployed:
         sys.stderr.write(
             '\n  WARNING: binding %s exposes this server to the network it is on.\n'
             '  Anyone who can reach it can spend your API key. Loopback plus an\n'

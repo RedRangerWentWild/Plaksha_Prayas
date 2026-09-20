@@ -359,6 +359,25 @@ BLUETRACE_PROVIDER=groq GROQ_API_KEY=... python3 server.py      # answers get a 
 Without an API key the tool is fully functional; it simply composes each answer
 itself and says so.
 
+### Deploying
+
+There are two deployments and the difference between them is one endpoint.
+
+| | Serves | Answers |
+|---|---|---|
+| **GitHub Pages** | the app as static files | composed locally, always |
+| **Render** | the same app, plus `/ask` | a model writes one paragraph, validated against the pack |
+
+Everything measured — the plot check, the route, the retention figure, the
+certificate — is computed in the browser and is identical on both. `render.yaml`
+is a blueprint: point Render at this repository and it builds nothing, because
+`server.py` imports only the standard library. Set `GROQ_API_KEY` in the
+dashboard; it is deliberately `sync: false` so no key is ever committed.
+
+On the free plan the service sleeps when idle and takes roughly a minute to
+wake. That is survivable here precisely because a slow or absent `/ask` is not
+a failure state: Tier 0 has already rendered.
+
 **[Operating manual →](blue-grid/README.md)** — extraction, layer encodings, the
 corpus format, the validation method, and where the method is weak.
 
