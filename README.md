@@ -6,6 +6,7 @@
   <img src="https://img.shields.io/badge/corpus-84_cited_chunks-4a4fc4?style=flat-square&labelColor=0b0e15" alt="84 chunks">
   <img src="https://img.shields.io/badge/works-offline-8f7ae8?style=flat-square&labelColor=0b0e15" alt="works offline">
   <img src="https://img.shields.io/badge/build_step-none-6b7280?style=flat-square&labelColor=0b0e15" alt="no build step">
+  <a href="https://bluetrace-1oys.onrender.com"><img src="https://img.shields.io/badge/live-demo-0e9cbf?style=flat-square&labelColor=0b0e15&logo=render&logoColor=white" alt="live demo"></a>
 </p>
 
 **Reconstructs a city's lost water bodies from the satellite record, then flags
@@ -18,8 +19,12 @@ gets built on, and answers questions about that plot from a corpus where every
 number carries the source it came from.
 
 > ### ▶ Live
+> **[Open the screening tool](https://bluetrace-1oys.onrender.com)** — the real map, timeline, plot check, downstream routing, retention and certificate, with a model behind the ask box.
+>
 > **[Interactive explainer](https://redrangerwentwild.github.io/Plaksha_Prayas/)** — the layers below, rotatable in 3D, with an era slider.
-> **[The screening tool itself](https://redrangerwentwild.github.io/Plaksha_Prayas/blue-grid/)** — the real map, timeline, plot check, routing and certificate. Runs entirely in the browser; answers are composed locally because a static host has no model endpoint.
+> **[Static copy of the tool](https://redrangerwentwild.github.io/Plaksha_Prayas/blue-grid/)** — identical, minus the one paragraph a model writes.
+>
+> <sub>The Render free plan sleeps when idle; the first request in an hour takes about a minute to wake. Nothing breaks meanwhile — a slow or absent `/ask` is a supported state, and the answer is composed locally until it returns.</sub>
 
 ---
 
