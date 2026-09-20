@@ -4002,10 +4002,42 @@ var ANSWER_TOOL = {
   }
 };
 
+// A phrase this tool must not use, whoever the grammatical subject is.
+//
+// The recommendation clause used to read /\bwe (recommend|approve)\b/, which
+// tests the one construction a model is least likely to reach for. Asked what
+// happens if a plot is built on, a real answer came back with "the screening
+// result therefore recommends that the proposed construction be halted" and
+// "the authority is advised to verify the boundary" — advice, twice, from a
+// tool whose whole posture is that it screens and does not decide, and the
+// check passed it because neither sentence says "we".
+//
+// The subject is not the point. Any of this tool, the screening, the result or
+// an unnamed authority recommending, advising, urging or requiring something is
+// the same overreach, so the subject is left unconstrained and the verb is what
+// is matched. Passive voice gets its own clause because that is how the second
+// sentence above evaded the first.
 var BANNED = [
   /\bmetres? (?:deep|of water)\b/i, /\bwater (?:level|depth) (?:of|will|would)\b/i,
   /\bwill flood\b/i, /\bprobability of flooding\b/i, /\breturn period of\b/i,
-  /\bwill be approved\b/i, /\bis (?:il)?legal\b/i, /\bwe (?:recommend|approve)\b/i
+  /\bwill be approved\b/i, /\bis (?:il)?legal\b/i,
+  /\bwe (?:recommend|approve)\b/i,
+  // Recommending APPROVAL, in any voice.
+  //
+  // Refusal is the opposite case and must pass: this tool's own corpus defines
+  // a REJECT as "a recommendation to refuse at screening stage, addressed to
+  // the sanctioning authority", so a blanket ban on the verb rejects an answer
+  // for paraphrasing the chunk it was handed. A first attempt here matched the
+  // noun alone and threw away "the authority is advised to refuse sanction at
+  // this stage" — the single most on-message sentence a rejection can produce.
+  //
+  // So the gap between verb and noun is tempered: any refusing word in between
+  // means the sentence is advising refusal, and it passes.
+  /\b(?:recommend(?:s|ed|ing)?|advis(?:e|es|ed|ing))\b(?:(?!\b(?:refus\w*|reject\w*|withh\w*|declin\w*|den(?:y|ies|ied)|against|no|not)\b)[^.]){0,48}\b(?:approval|approving|approve|sanction|permission|consent)\b/i,
+  // Prescribing a use. Layer 4 states a requirement and lists what can
+  // discharge it; choosing between those is the authority's call, and the
+  // options panel says so in as many words.
+  /\b(?:should|must|ought to)\s+be\s+(?:developed|built|converted|restored|used)\s+as\b/i
 ];
 
 // The contract asks for bracketed ids inline in the prose and bare ids in the
