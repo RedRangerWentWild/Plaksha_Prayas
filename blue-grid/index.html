@@ -3982,7 +3982,7 @@ function composeOffline(pack){
           what: what, refused: refused, generator: 'offline'};
 }
 
-// The contract. Eight clauses, each of which validateAnswer can actually test —
+// The contract. Nine clauses, each of which validateAnswer can actually test —
 // a rule the validator cannot check is a suggestion, not a contract.
 var CONTRACT = [
  'You are a screening assistant for a municipal plan-sanction desk in Bengaluru.',
@@ -4011,6 +4011,10 @@ var CONTRACT = [
  '8. CORROBORATION. Precedent chunks describe other places and other years.',
  '   Never attribute one to this plot. An answer citing only precedent chunks',
  '   is invalid.',
+ '',
+ '9. CITATIONS ARE A CLOSED LIST. Cite only ids that appear in CHUNKS above.',
+ '   It is the whole of what you were given. An id you remember from elsewhere',
+ '   is a claim of support you do not have, and the answer is discarded for it.',
  '',
  'Cite chunks inline in the narrative in square brackets, like',
  '[outcome.reject.meaning]. The "cited" array takes the SAME ids with no',

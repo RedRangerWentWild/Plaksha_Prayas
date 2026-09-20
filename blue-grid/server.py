@@ -24,6 +24,7 @@ the arithmetic and the verdict never involve any of them: without a key the
 page answers from the corpus alone, which is the supported default.
 """
 import argparse
+import copy
 import json
 import os
 import sys
@@ -147,6 +148,38 @@ def groq_schema(node):
     return out
 
 
+def pin_to_pack(schema, pack):
+    """Close the citation fields over the ids this pack actually carries.
+
+    The validator already rejects an answer that cites a chunk it was not
+    given, and in practice that fires often: a model asked to cite its sources
+    will reach for a plausible-looking id it remembers rather than one in front
+    of it, and the whole answer is then discarded for a wrong array.
+
+    Catching it afterwards is the weaker half of the job. The ids are known at
+    request time, so they become an enum and an invalid citation stops being
+    something to detect — the decoder cannot emit one. The validator stays
+    exactly as it was; this only removes the most common reason it has to fire.
+
+    Left alone when a list would be empty, because `enum: []` satisfies nothing
+    and would fail every answer rather than none.
+    """
+    chunk_ids = [c['id'] for c in pack.get('chunks', []) if c.get('id')]
+    fact_ids = [f['id'] for f in pack.get('facts', []) if f.get('id')]
+    fact_ids += [p['id'] for p in pack.get('params', []) if p.get('id')]
+    props = (schema or {}).get('properties') or {}
+
+    if chunk_ids and isinstance(props.get('cited'), dict):
+        props['cited'].setdefault('items', {})['enum'] = chunk_ids
+    if fact_ids and isinstance(props.get('numbers_used'), dict):
+        props['numbers_used'].setdefault('items', {})['enum'] = fact_ids
+    if chunk_ids and isinstance(props.get('refused'), dict):
+        rp = ((props['refused'].get('items') or {}).get('properties') or {})
+        if isinstance(rp.get('chunk'), dict):
+            rp['chunk']['enum'] = chunk_ids
+    return schema
+
+
 def build_request(payload):
     """Assemble the Messages call from the pack the client sent.
 
@@ -187,7 +220,8 @@ def build_request(payload):
         # pack under a contract is not a reasoning problem, and the reasoning
         # comes out of the same completion budget.
         tool = payload['tool']
-        schema = tool.get('input_schema') or tool.get('parameters') or {}
+        schema = copy.deepcopy(tool.get('input_schema') or tool.get('parameters') or {})
+        schema = pin_to_pack(schema, pack)
         return {
             'model': model(),
             'max_completion_tokens': MAX_OUTPUT_TOKENS,
@@ -206,7 +240,8 @@ def build_request(payload):
     if provider() == 'gemini':
         # Gemini reaches the same guarantee through a response schema rather
         # than a forced tool call, so the answer arrives as JSON text.
-        tool = payload['tool']
+        tool = copy.deepcopy(payload['tool'])
+        pin_to_pack(tool.get('input_schema') or tool.get('parameters') or {}, pack)
         return {
             'systemInstruction': {'parts': [{'text': payload['contract']}]},
             'contents': [{'role': 'user', 'parts': [{'text': user}]}],
@@ -237,6 +272,12 @@ def build_request(payload):
     # tool_use block, which is precisely the failure this endpoint must not
     # have. Effort is turned down instead — narrating an evidence pack under a
     # contract is not a reasoning problem, and low effort buys back the latency.
+    # Anthropic takes a forced tool call rather than a response schema, and
+    # the tool's input_schema is where the same closed enums go.
+    _pinned_tool = copy.deepcopy(payload['tool'])
+    pin_to_pack(_pinned_tool.get('input_schema')
+                or _pinned_tool.get('parameters') or {}, pack)
+
     return {
         'model': model(),
         'max_tokens': MAX_OUTPUT_TOKENS,
@@ -246,8 +287,8 @@ def build_request(payload):
              'cache_control': {'type': 'ephemeral'}},
         ],
         'messages': [{'role': 'user', 'content': user}],
-        'tools': [payload['tool']],
-        'tool_choice': {'type': 'tool', 'name': payload['tool']['name']},
+        'tools': [_pinned_tool],
+        'tool_choice': {'type': 'tool', 'name': _pinned_tool['name']},
     }
 
 
