@@ -1064,7 +1064,11 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
     <section class="panel" id="retention"></section>
 
     <section class="panel" id="statsCard">
-      <div class="phead"><span class="lbl" id="statsTitle">Catchment ledger</span></div>
+      <div class="phead"><span class="lbl" id="statsTitle">Catchment ledger</span>
+        <button class="iconbtn" id="statsHide" title="Hide the study-area totals">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
       <div id="stats"></div>
       <div class="bar"><i id="lossBar" style="width:0"></i></div>
     </section>
@@ -1313,7 +1317,8 @@ var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','
 // because a wash and a line cannot be confused with each other the way two
 // blues could.
 var MAP_LAYERS = ['rgb2005','rgb2025','floodprone','flowpath',
-                  'historic','historicHatch','historicEdge','present','encroached'];
+                  'historicPast','historic','historicHatch','historicEdge',
+                  'present','encroached'];
 
 // Lookup tables, never drawn. These carry measurements rather than colour:
 // buffers packs three distances in metres into R/G/B, history packs the last
@@ -1340,6 +1345,15 @@ var DATA_LAYERS = ['buffers','history','hydro','routing'];
 // top of satellite imagery, at a glance, from the back of a room.
 var PALETTE = {
   present:'#0e9cbf',      // water 2000-21 — alive, cool
+  // The SAME 1984-99 mask, rendered as water rather than as loss.
+  //
+  // The timeline opened on amber patches and ended on cyan ones, and amber
+  // does not read as water — so the first frame said the catchment had LESS
+  // water in 2003 than it has now, which is the exact opposite of the finding.
+  // The mask is painted deep blue at the start of the scrub, because in 1984-99
+  // it WAS water, and only becomes amber as the scrub reaches the years in
+  // which it stopped being water.
+  historicPast:'#1746a8',
   historic:'#d0862b',     // water 1984-99 — lost, warm
   historicHatch:'#d0862b',// the same layer, hatched, for close zooms
   historicEdge:'#a8620b', // the 1984-99 shoreline, drawn as a line
@@ -1433,6 +1447,7 @@ var state = {
   // at full strength five overlays at once is a quilt, and the officer needs
   // to see the plot they are judging, not only the constraints on it.
   layerOff: {}, overlay: 0.8, legendShut: false, hintShown: false,
+  keyShowsPast: null, statsHidden: false,
   // 'sat' = Esri imagery, 'map' = pale Esri gray canvas. Set per mode, and
   // overridable from the switch in the bottom-right corner.
   base: 'sat'
@@ -1984,6 +1999,13 @@ function loadCity(key){
                .updateImage({url: (t && t.hatch) || BLANK, coordinates:co});
             map.getSource('historicEdge')
                .updateImage({url: (t && t.edge) || BLANK, coordinates:co});
+            // Same file, second colour. Two tints of one mask is cheaper than
+            // an extra export and cannot fall out of register with it.
+            return tint(url, PALETTE.historicPast, null, false)
+              .then(function(p){
+                map.getSource('historicPast')
+                   .updateImage({url: (p && p.fill) || BLANK, coordinates:co});
+              });
           }
         });
     });
@@ -2117,8 +2139,8 @@ function update(){
   document.getElementById('eraDot').style.background =
     past ? PALETTE.historic : PALETTE.present;
   document.getElementById('caption').textContent =
-    t<.12 ? 'Amber is water the satellites recorded in 1984\u201399.' :
-    t<.50 ? 'Water retreats. The edges go first.' :
+    t<.16 ? 'Blue is the water the satellites recorded in 1984\u201399.' :
+    t<.50 ? 'Water retreats. Amber is what stopped being water.' :
     t<.78 ? 'Cyan is what survived. Construction reaches the lakebed.' :
             'The amber line is the 1984\u201399 shoreline. Red is what was built inside it.';
 
@@ -2132,6 +2154,9 @@ function update(){
     set('historic',      v * (1 - hz) * SOLID_SHARE);
     set('historicHatch', v * hz);
   }
+  // How much of the 1984-99 mask is still being shown AS WATER rather than as
+  // loss. One at the start of the scrub, nothing by the end of it.
+  function wasWater(v){ set('historicPast', v); }
 
   // On the pale basemap the true-colour composites are exactly what is being
   // replaced, so they come off entirely rather than sitting on top of it.
@@ -2145,11 +2170,21 @@ function update(){
     // crossfade never exposes the modern basemap mid-drag.
     rgb('rgb2005', state.have.rgb2005 ? 1 : 0);
     rgb('rgb2025', state.have.rgb2025 ? ramp(t,.05,.95) : 0);
-    // The lost water fades from a filled wash to a ghost, and as it fades its
-    // SHORELINE comes up to full strength. What the viewer is left holding at
-    // the end of the scrub is one amber line drawn across today's ground with
-    // red construction inside it — which is the entire finding, in one frame.
-    lost(.98 - .26*t);
+
+    // The scrub is a hand-off between two readings of one mask.
+    //
+    // It OPENS on the 1984-99 tanks painted as deep water, because that is
+    // what they were: a catchment fuller than the one on screen today. Only as
+    // the years advance does that blue give way to amber, and amber is then
+    // read correctly — as the part that stopped being water — because the
+    // viewer watched it stop. Painting it amber from the first frame told the
+    // opposite story, that 2003 held less water than 2025.
+    //
+    // The two never share the frame at equal strength: the blue is gone by
+    // the time the amber is fully up, so the eye sees a change of state rather
+    // than two colours layered over one shape.
+    wasWater(.95 * (1 - ramp(t, .04, .46)));
+    lost((.98 - .26*t) * ramp(t, .22, .60));
     set('historicEdge', .55 + .42*ramp(t,.10,.70));
     set('present',      .90*ramp(t,.10,.70));
     set('encroached',   .95*ramp(t,.50,1));
@@ -2161,6 +2196,7 @@ function update(){
     // approving officer needs, not a story about the past.
     rgb('rgb2005', 0);
     rgb('rgb2025', state.have.rgb2025 ? 1 : 0);
+    wasWater(0);
     lost(.62); set('historicEdge', .92);
     set('present', .74); set('encroached', .95);
     set('floodprone', .17); set('flowpath', .46);
@@ -2168,11 +2204,21 @@ function update(){
   } else {
     rgb('rgb2005', 0);
     rgb('rgb2025', state.have.rgb2025 ? 1 : 0);
+    wasWater(0);
     lost(.34); set('historicEdge', .60);
     set('present', .68); set('encroached', .92);
     set('floodprone', .30); set('flowpath', .68);
     bo = .55;
   }
+  // The timeline key depends on t, so it is rebuilt as t moves — but only
+  // when the answer actually changes, because this runs on every frame of the
+  // scrub and rebuilding a panel sixty times a second is how a slider starts
+  // to feel heavy.
+  if(m === 'timeline'){
+    var pastNow = state.t < .42;
+    if(state.keyShowsPast !== pastNow){ state.keyShowsPast = pastNow; renderLegend(); }
+  }
+
   if(map.getLayer('b-fill')){
     map.setPaintProperty('b-fill','fill-opacity',bo);
     map.setPaintProperty('b-line','line-opacity',bo*1.2);
@@ -2211,7 +2257,8 @@ function update(){
 
 // Two rasters render one idea — the lost-water wash and its hatch — so the key
 // lists it once and the toggle has to reach both.
-var LAYER_KEY = {historic:'historic', historicHatch:'historic'};
+var LAYER_KEY = {historic:'historic', historicHatch:'historic',
+                 historicPast:'historic'};
 
 // ---------------------------------------------------------------------------
 // BASEMAP
@@ -2316,6 +2363,10 @@ function applyMode(){
   if(m === 'timeline'){ hideAskDock(); } else if(state.lastCheck){ showAskDock(); }
 
   setQueue(m !== 'approval');
+  // Changing tab is a fresh look at the study area, so a card dismissed on the
+  // last one comes back rather than staying gone for the session with no way
+  // to say so.
+  if(m === 'timeline') state.statsHidden = false;
 
   var hint = document.getElementById('hint');
   clearTimeout(hintTimer);
@@ -3490,8 +3541,7 @@ function showVerdict(r, rows, p, actions, drivers){
   // The catchment ledger describes the whole study area. Once a specific plot
   // is on screen the rail belongs to that plot, and leaving a city-wide figure
   // above it was what pushed the verdict below the fold.
-  document.getElementById('statsCard').style.display =
-    state.mode === 'approval' ? 'none' : '';
+  syncStatsCard();
 
   // The ask bar is docked and persistent now, so showing a verdict reveals it
   // rather than rebuilding it inside the panel.
@@ -4943,11 +4993,23 @@ function animateTo(el, target, suffix, decimals){
   document.addEventListener('visibilitychange', finish, {once:true});
 }
 
+// The study-area totals are context for a rail with nothing else in it.
+//
+// They were hidden under a plot in screening mode only, so in the other two
+// modes they sat beneath the verdict and its tabs — four study-wide figures
+// under a panel answering about one plot, in every tab, saying the same thing
+// each time. The rule is the same in all three modes now: once the rail is
+// about a plot, the city-wide card stands down. It also takes a dismissal, for
+// a reader who does not want it even on an empty rail.
+function syncStatsCard(){
+  var onPlot = document.getElementById('verdict').classList.contains('on');
+  document.getElementById('statsCard').style.display =
+    (onPlot || state.statsHidden) ? 'none' : '';
+}
+
 function renderStats(){
   var s = state.stats, c = CITIES[state.city], host = document.getElementById('stats');
-  var showing = document.getElementById('verdict').classList.contains('on');
-  document.getElementById('statsCard').style.display =
-    (showing && state.mode === 'approval') ? 'none' : '';
+  syncStatsCard();
   document.getElementById('statsTitle').textContent =
     state.mode==='impact' ? 'Who pays downstream' : 'Catchment ledger';
 
@@ -5088,6 +5150,9 @@ function renderList(){
 // the colour, not what the file that produced it is called.
 var LEGEND_ROWS = {
   historic:     {sw:'ghost', b:'Water that was lost',     i:'JRC \u00b7 1984\u201399'},
+  // The same mask at the other end of the scrub, before it is read as loss.
+  historicPast: {sw:'',      b:'Water in 1984\u201399',      i:'JRC \u00b7 the fuller catchment',
+                 c:'#1746a8'},
   historicEdge: {sw:'line',  b:'1984\u201399 shoreline',   i:'traced from the mask'},
   present:      {sw:'',      b:'Water today',             i:'JRC \u00b7 2000\u201321'},
   encroached:   {sw:'',      b:'Built on former water',   i:'Dynamic World \u00d7 JRC'},
@@ -5103,7 +5168,7 @@ var LEGEND_ROWS = {
 var LEGEND_FOR = {
   // Only what is actually drawn in that mode. A key that lists a colour the
   // map is not painting teaches the reader to distrust the key.
-  timeline: ['historic','historicEdge','present','encroached'],
+  timeline: ['historicPast','historic','historicEdge','present','encroached'],
   approval: ['historicEdge','present','encroached','flowpath','floodprone'],
   impact:   ['floodprone','flowpath','encroached','present']
 };
@@ -5120,6 +5185,17 @@ function renderLegend(){
   // only while one is on screen. A key that lists a mark the map is not making
   // teaches the reader to distrust the key — which is the same reason the three
   // mode-specific lists exist at all.
+  // In timeline mode the 1984-99 mask is painted blue at the start and amber
+  // at the end, and the key names whichever one the map is actually painting.
+  // Listing both at once would ask the reader to hold two meanings for one
+  // shape, which is the confusion the crossfade exists to avoid.
+  if(m === 'timeline'){
+    var showPast = state.t < .42;
+    keys = keys.filter(function(k){
+      return k === 'historicPast' ? showPast : k === 'historic' ? !showPast : true;
+    });
+  }
+
   var ck = state.lastCheck;
   if(m !== 'timeline' && ck && ck.ctx && ck.ctx.route && ck.ctx.route.traced){
     keys.push('routeLine');
@@ -5212,6 +5288,11 @@ function hideToast(){
 // ===========================================================================
 // CITY SWITCH, VALIDATION, EXPORT
 // ===========================================================================
+document.getElementById('statsHide').onclick = function(){
+  state.statsHidden = true;
+  syncStatsCard();
+  toast('Study-area totals hidden. They come back with the Timeline tab.');
+};
 document.getElementById('queueHide').onclick = function(){ setQueue(false); };
 document.getElementById('queueToggle').onclick = function(){ setQueue(true); };
 
