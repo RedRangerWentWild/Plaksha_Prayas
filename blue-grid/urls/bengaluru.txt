@@ -11,3 +11,10 @@ PNG buffers: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-
 PNG history: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/4452a8a32f9c66301d2cd17ad9a01ae1-5f9639631b835aaf2b3a383d84bd952f:getPixels
 PNG hydro: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/367549cc430d15d78312188c2f201a7c-20aa2b3e366235b66e9ea6d333e418c8:getPixels
 PNG routing: https://earthengine.googleapis.com/v1/projects/sinuous-myth-481618-f6/thumbnails/7947b5a767ef6a6ee5ddf40b1121fe35-a3db269009f9fd19788ae83f70ff9091:getPixels
+
+# flagged_buildings.geojson is the ranked building layer. It unlocks the
+# priority list, the per-building evidence panel, the CSV export and the
+# structure count on the downstream panel. It now arrives by link like every
+# raster — paste the GEOJSON line below — rather than through the Drive export
+# task, which is still in the script as the fallback for a denser city.
+# GEOJSON flagged_buildings: <paste the console link here>

@@ -4648,7 +4648,13 @@ document.getElementById('modal').onclick = function(e){ if(e.target===this) this
 // The artifact a municipal engineer would actually open.
 document.getElementById('csvBtn').onclick = function(){
   if(!state.buildings || !state.buildings.features.length){
-    toast('Nothing to export yet — run the Earth Engine export task first.'); return;
+    // Name the shorter of the two routes. The Drive task is still there and
+    // still works, but it is five manual steps, and this line is where someone
+    // decides whether the ranked list is worth having today.
+    toast('Nothing to export yet — the ranked building layer has not been '
+      + 'fetched. Re-run gee_blue_grid.js, paste its "GEOJSON flagged_buildings" '
+      + 'line into urls/' + state.city + '.txt, then ./fetch_layers.sh '
+      + state.city + '.'); return;
   }
   var cols = ['rank','lat','lon','verdict','risk_score','lost_frac','flow_frac',
               'upstream_km2','hand_m','area_in_meters','confidence'];

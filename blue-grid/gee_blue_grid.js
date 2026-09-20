@@ -521,6 +521,23 @@ print('PNG routing:', routing.visualize(BYTES_RGB).getThumbURL(THUMB));
 print('routing codes: 0 nodata, 1 E, 2 SE, 3 S, 4 SW, 5 W, 6 NW, 7 N, 8 NE, '
       + '9 mouth, 10 depression');
 
+// The ranked buildings, as a link rather than a file in Drive.
+//
+// The Export task below is the robust path and stays, but it costs a round trip
+// through Drive — start the task, wait, find the file, download it, rename it,
+// move it — and that friction is why the layer was still missing days after
+// everything else had landed. The tool degrades honestly without it, which
+// means the cost of never doing it is invisible.
+//
+// getDownloadURL is synchronous and capped, so it works here only because
+// `flagged` is already filtered to risk_score > 1 rather than being every
+// building in the AOI. If this line errors or times out on a denser city, that
+// is the signal to use the Drive task instead — it is not a replacement for it.
+print('GEOJSON flagged_buildings:', flagged.getDownloadURL({
+  format: 'GEO_JSON',
+  filename: 'flagged_buildings'
+}));
+
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.
 Export.table.toDrive({

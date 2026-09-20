@@ -30,15 +30,19 @@ script and copy fresh links.
 
 **3. Pull the buildings**
 
-In Earth Engine, open the **Tasks** tab and run `blue_grid_flagged_buildings`.
-It lands in Drive. Rename and move it:
+The console also prints a `GEOJSON flagged_buildings: ...` line. Paste it into
+`urls/bengaluru.txt` with the rest and re-run `./fetch_layers.sh bengaluru` —
+the ranked building layer arrives by link like every raster.
 
-```
-data/bengaluru/flagged_buildings.geojson
-```
+This unlocks the ranked list, the per-building evidence panel, CSV export and
+the structure count on the downstream panel. Everything else works without it.
 
-This unlocks the ranked list, the per-building evidence panel and CSV export.
-Everything else works without it.
+`getDownloadURL` is synchronous and capped, so it works here only because the
+collection is already filtered to `risk_score > 1` rather than being every
+building in the study area. If that line errors or times out on a denser city,
+open the **Tasks** tab instead and run `blue_grid_flagged_buildings`; it lands
+in Drive, and you rename and move it to `data/<city>/flagged_buildings.geojson`
+by hand. The task is still in the script for exactly that case.
 
 **4. Update the numbers**
 
