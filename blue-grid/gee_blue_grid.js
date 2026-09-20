@@ -529,14 +529,26 @@ print('routing codes: 0 nodata, 1 E, 2 SE, 3 S, 4 SW, 5 W, 6 NW, 7 N, 8 NE, '
 // everything else had landed. The tool degrades honestly without it, which
 // means the cost of never doing it is invisible.
 //
-// getDownloadURL is synchronous and capped, so it works here only because
-// `flagged` is already filtered to risk_score > 1 rather than being every
-// building in the AOI. If this line errors or times out on a denser city, that
-// is the signal to use the Drive task instead — it is not a replacement for it.
-print('GEOJSON flagged_buildings:', flagged.getDownloadURL({
-  format: 'GEO_JSON',
-  filename: 'flagged_buildings'
-}));
+// OFF BY DEFAULT, because on this catchment it hangs the editor tab.
+//
+// getDownloadURL is synchronous: it evaluates the entire scored collection
+// before it returns a link, and the scoring is a reduceRegions over every
+// Open Buildings polygon in the AOI — tens of thousands of them against four
+// rasters. The risk_score > 1 filter shrinks the OUTPUT, not the work, so the
+// browser sits on it until the page is declared unresponsive.
+//
+// Left in because on a sparser AOI it is genuinely the shorter path, and
+// because the reason it fails here is worth stating rather than deleting. The
+// Drive task below does the same job asynchronously, gets far more compute
+// time, and is the supported route.
+var TRY_DIRECT_DOWNLOAD = false;   // <-- true only on a small or sparse AOI
+
+if (TRY_DIRECT_DOWNLOAD) {
+  print('GEOJSON flagged_buildings:', flagged.getDownloadURL({
+    format: 'GEO_JSON',
+    filename: 'flagged_buildings'
+  }));
+}
 
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.

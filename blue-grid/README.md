@@ -30,19 +30,25 @@ script and copy fresh links.
 
 **3. Pull the buildings**
 
-The console also prints a `GEOJSON flagged_buildings: ...` line. Paste it into
-`urls/bengaluru.txt` with the rest and re-run `./fetch_layers.sh bengaluru` —
-the ranked building layer arrives by link like every raster.
+In Earth Engine, open the **Tasks** tab and run `blue_grid_flagged_buildings`.
+It lands in Drive as `blue_grid_flagged_buildings.geojson`. Download it and
+move it to:
+
+```
+data/bengaluru/flagged_buildings.geojson
+```
 
 This unlocks the ranked list, the per-building evidence panel, CSV export and
 the structure count on the downstream panel. Everything else works without it.
 
-`getDownloadURL` is synchronous and capped, so it works here only because the
-collection is already filtered to `risk_score > 1` rather than being every
-building in the study area. If that line errors or times out on a denser city,
-open the **Tasks** tab instead and run `blue_grid_flagged_buildings`; it lands
-in Drive, and you rename and move it to `data/<city>/flagged_buildings.geojson`
-by hand. The task is still in the script for exactly that case.
+The script also holds a direct `getDownloadURL` path behind
+`TRY_DIRECT_DOWNLOAD`, **off by default**. It returns a link you paste into
+`urls/<city>.txt` like any raster, and `fetch_layers.sh` understands a
+`GEOJSON` line — but it is synchronous, and on a catchment this dense it hangs
+the editor tab before it returns. The `risk_score > 1` filter shrinks the
+output, not the work: the scoring is a `reduceRegions` over every Open
+Buildings polygon in the study area against four rasters. Turn it on for a
+sparse AOI; leave it off here.
 
 **4. Update the numbers**
 
