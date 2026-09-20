@@ -17,7 +17,9 @@ water, ranks them by how much catchment they block, checks any plot before it
 gets built on, and answers questions about that plot from a corpus where every
 number carries the source it came from.
 
-> **[▶ Open the interactive explainer](https://redrangerwentwild.github.io/Plaksha_Prayas/)** — the same layers below, rotatable in 3D, with an era slider.
+> ### ▶ Live
+> **[Interactive explainer](https://redrangerwentwild.github.io/Plaksha_Prayas/)** — the layers below, rotatable in 3D, with an era slider.
+> **[The screening tool itself](https://redrangerwentwild.github.io/Plaksha_Prayas/blue-grid/)** — the real map, timeline, plot check, routing and certificate. Runs entirely in the browser; answers are composed locally because a static host has no model endpoint.
 
 ---
 

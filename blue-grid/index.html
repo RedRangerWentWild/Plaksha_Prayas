@@ -4161,7 +4161,11 @@ function askServer(pack){
   // only "the model did not answer in time". Nothing is waiting on this: the
   // deterministic answer is already rendered before the call is made.
   var timer = setTimeout(function(){ ctl.abort(); }, 30000);
-  return fetch('/ask', {
+  // Relative, not '/ask'. Served from the project root both resolve the same,
+  // but the app is a directory of static files and is perfectly capable of
+  // being hosted under a path — on GitHub Pages it sits at /<repo>/blue-grid/,
+  // where an absolute '/ask' leaves the site entirely and asks the domain root.
+  return fetch('ask', {
     method: 'POST', signal: ctl.signal,
     headers: {'content-type': 'application/json'},
     body: JSON.stringify({pack: pack, contract: CONTRACT, tool: ANSWER_TOOL})
@@ -4170,7 +4174,15 @@ function askServer(pack){
     if(r.status === 503) return r.json().then(function(j){
       return {unavailable: j.reason || 'no model configured'}; });
     if(!r.ok) return r.text().then(function(t){
-      return {unavailable: 'the model endpoint answered ' + r.status + ': ' + t.slice(0,120)}; });
+      // A static host has no /ask at all, and that is a supported way to run
+      // this: every answer is composed locally and says so. Pasting the host's
+      // HTML error page into the notice made the ordinary case look like a
+      // fault, so a response that is plainly not ours is named as what it is.
+      if(/^\s*<(!doctype|html)/i.test(t))
+        return {unavailable: 'this copy is served as static files, with no '
+              + 'model endpoint behind it'};
+      return {unavailable: 'the model endpoint answered ' + r.status
+            + (t.trim() ? ': ' + t.trim().slice(0,120) : '')}; });
     return r.json();
   }).catch(function(e){
     clearTimeout(timer);
