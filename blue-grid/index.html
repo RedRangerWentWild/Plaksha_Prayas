@@ -246,6 +246,55 @@ select:focus-visible{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-
 .iconbtn:hover{color:var(--ink);background:var(--raised)}
 
 /* ===========================================================================
+   SEARCH
+   A study area is 13 km across and the only way in used to be a click on the
+   right pixel. Officers do not hold a plot as a coordinate — they hold it as
+   "the Kasavanahalli one", a survey enquiry, or a lat/long off a document, so
+   those are the three things this accepts.
+   =========================================================================== */
+#searchWrap{position:relative;flex:1;min-width:120px;max-width:340px}
+#searchBtn{display:flex;align-items:center;gap:8px;width:100%;
+  background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:8px 10px;cursor:text;transition:border-color .15s,background .15s}
+#searchBtn:hover{border-color:var(--line-hot);background:var(--raised)}
+#searchBtn .ph{flex:1;text-align:left;font:400 12px/1 var(--sans);color:var(--faint);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#searchBtn svg{flex:none;color:var(--faint)}
+#searchBtn kbd{flex:none}
+
+#palette{position:fixed;inset:0;z-index:70;display:none;
+  background:rgba(18,20,26,.42);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#palette.on{display:block}
+.pbox{position:absolute;top:14vh;left:50%;transform:translateX(-50%);
+  width:min(560px,calc(100vw - 32px));max-height:66vh;display:flex;flex-direction:column;
+  overflow:hidden;animation:rise .2s cubic-bezier(.16,1,.3,1)}
+.pinput{display:flex;align-items:center;gap:10px;padding:14px 16px;
+  border-bottom:1px solid var(--line);flex:none}
+.pinput svg{flex:none;color:var(--faint)}
+.pinput input{flex:1;min-width:0;background:none;border:none;outline:none;
+  font:400 15px/1.3 var(--sans);color:var(--text)}
+.pinput input::placeholder{color:var(--faint)}
+#presults{overflow-y:auto;padding:6px;min-height:0}
+.pgroup{font:550 9.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);padding:10px 10px 6px}
+.pres{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:var(--r-sm);
+  cursor:pointer;border:1px solid transparent}
+.pres.sel{background:var(--sunken);border-color:var(--line-hot)}
+.pres .pico{width:22px;height:22px;flex:none;border-radius:6px;display:grid;
+  place-items:center;background:var(--raised);color:var(--dim)}
+.pres .pbody{flex:1;min-width:0}
+.pres .pnm{font:550 13px/1.35 var(--sans);color:var(--text);display:block;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pres .psub{font:400 10.5px/1.45 var(--mono);color:var(--faint);display:block;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pres .pgo{font:500 9.5px/1 var(--mono);color:var(--faint);flex:none;opacity:0}
+.pres.sel .pgo{opacity:1}
+.pfoot{display:flex;gap:14px;padding:9px 14px;border-top:1px solid var(--line);
+  font:400 10px/1 var(--sans);color:var(--faint);flex:none}
+.pfoot span{display:flex;align-items:center;gap:5px}
+.pempty{padding:22px 16px;text-align:center;font:400 12px/1.7 var(--sans);color:var(--dim)}
+
+/* ===========================================================================
    LEFT — the queue
    A browsing aid, not the product, so it collapses. It opens by default only
    where browsing is the point (timeline and downstream) and starts collapsed
@@ -350,6 +399,27 @@ select:focus-visible{border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-
 .bar i{display:block;height:100%;border-radius:3px;
   background:linear-gradient(90deg,var(--lyr-historic),var(--lyr-encroached));
   transition:width 1.1s cubic-bezier(.22,1,.36,1)}
+
+/* ---- inspector tabs ----
+   Verdict, downstream and retention are three answers about one plot, and
+   stacking them put 1,700 px of panel into a 550 px column: the officer had to
+   scroll three screens to reach the retention figure, and nothing on screen
+   said it was down there. They are siblings, not a sequence, so they get a
+   tab strip and the rail stops being a tunnel. */
+#inspectTabs{display:none;padding:4px;gap:2px}
+#inspectTabs.on{display:flex}
+#inspectTabs button{flex:1;min-width:0;background:none;border:none;cursor:pointer;
+  border-radius:var(--r-sm);padding:8px 6px;color:var(--dim);
+  font:550 11px/1.2 var(--sans);letter-spacing:-.005em;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  transition:background .14s,color .14s}
+#inspectTabs button:hover{color:var(--text);background:var(--sunken)}
+#inspectTabs button.on{background:var(--sunken);color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--line-hot)}
+#inspectTabs button .tval{font:600 12px/1 var(--mono);font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em}
+#inspectTabs button.on .tval{color:var(--accent)}
+#inspectTabs button.warn.on .tval{color:var(--v-reject)}
 
 /* ---- the verdict ----
    A banner with a left rule, not a rounded pill. The rule is what makes it
@@ -593,12 +663,49 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
    words, one line per layer, with what the colour MEANS rather than what the
    file is called.
    =========================================================================== */
+/* Bottom-anchored and grown upward, so it has to be told where to stop: with
+   seven rows and the intensity control the key is now tall enough to run into
+   the header on a short window. It caps against the viewport and scrolls its
+   own body instead. */
 #legend{position:absolute;left:var(--pad);bottom:var(--dock-gap);z-index:20;
-  width:214px;overflow:hidden;transition:opacity .25s}
-#legend .lhead{padding:11px 13px 9px;border-bottom:1px solid var(--line)}
-#legend .lbody{padding:7px 8px 8px}
+  width:214px;overflow:hidden;transition:opacity .25s;
+  display:flex;flex-direction:column;
+  max-height:calc(100vh - var(--topbar-h) - var(--dock-gap) - 34px)}
+#legend.shut .lbody,#legend.shut .lwash{display:none}
+.lfold{background:none;border:none;cursor:pointer;flex:none;padding:3px;
+  border-radius:4px;color:var(--faint);display:grid;place-items:center}
+.lfold:hover{background:var(--sunken);color:var(--text)}
+.lfold svg{transition:transform .2s}
+#legend.shut .lfold svg{transform:rotate(-90deg)}
+#legend .lhead{padding:11px 13px 9px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px}
+#legend .lhead .lbl{flex:1;min-width:0}
+.lreset{background:none;border:none;cursor:pointer;flex:none;padding:2px 4px;
+  border-radius:4px;font:500 9.5px/1 var(--mono);color:var(--accent)}
+.lreset:hover{background:var(--sunken)}
+#legend .lbody{padding:7px 8px 8px;overflow-y:auto;min-height:0;
+  scrollbar-width:thin;scrollbar-color:var(--line-hot) transparent}
+#legend .lbody::-webkit-scrollbar{width:5px}
+#legend .lbody::-webkit-scrollbar-thumb{background:var(--line-hot);border-radius:3px}
 #legend .key{display:flex;align-items:flex-start;gap:9px;padding:5px 5px;
-  border-radius:var(--r-xs)}
+  border-radius:var(--r-xs);transition:background .13s,opacity .13s}
+/* Every row that stands for a layer is a switch, so it has to look pressable
+   and has to show which way it is set. */
+#legend .key[data-k]{cursor:pointer;user-select:none}
+#legend .key[data-k]:hover{background:var(--sunken)}
+#legend .key[data-k]:focus-visible{outline:none;background:var(--sunken);
+  box-shadow:inset 0 0 0 1px var(--accent)}
+#legend .key.off{opacity:.42}
+#legend .key.off b{text-decoration:line-through;text-decoration-thickness:1px}
+#legend .key.off .sw{filter:grayscale(1)}
+.lwash{display:flex;align-items:center;gap:9px;padding:9px 13px 11px;
+  border-top:1px solid var(--line)}
+.lwash span{font:500 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);flex:none}
+.lwash input{flex:1;min-width:0;height:3px}
+.lwash b{font:600 10px/1 var(--mono);color:var(--dim);flex:none;width:20px;
+  text-align:right;font-variant-numeric:tabular-nums}
+.wtext{font:400 11.5px/1.7 var(--sans);color:var(--dim);margin:0}
 #legend .key b{display:block;font:500 11px/1.35 var(--sans);color:var(--text)}
 #legend .key i{display:block;font-style:normal;font:400 9.5px/1.4 var(--mono);
   color:var(--faint);margin-top:1px;letter-spacing:.01em}
@@ -620,6 +727,19 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   background:var(--mark-yellow);box-shadow:0 0 0 1px rgba(11,14,20,.5)}
 .sw.cross::before{transform:rotate(45deg)}
 .sw.cross::after{transform:rotate(-45deg)}
+
+/* ---- still decoding ----
+   The boot screen comes down when the map has something to draw, but the
+   measurement layers keep decoding for another half-minute behind it. For that
+   window the tool LOOKS ready and cannot answer a click, so it says so in the
+   one place the eye is already going: under the mode switch, above the map. */
+#hydrating{position:absolute;top:calc(var(--pad) + var(--topbar-h) + 10px);left:50%;
+  transform:translateX(-50%);z-index:23;display:none;align-items:center;gap:9px;
+  padding:9px 14px;font:450 11.5px/1 var(--sans);color:var(--dim)}
+#hydrating.on{display:flex}
+.hspin{width:11px;height:11px;flex:none;border-radius:50%;
+  border:1.6px solid rgba(47,51,145,.22);border-top-color:var(--act);
+  animation:spin .7s linear infinite}
 
 /* ---- basemap switch ---- */
 #basePill{position:absolute;right:var(--pad);bottom:var(--dock-gap);z-index:22;
@@ -776,8 +896,12 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   display:grid;place-items:center;box-shadow:var(--sh-2)}
 .bootbar{width:148px;height:3px;background:rgba(13,17,28,.08);border-radius:3px;
   overflow:hidden}
+/* Indeterminate until the decode queue is known, then determinate. A sweeping
+   bar that never fills says "working" for thirty seconds and never says how
+   much longer; once the number of layers is known the bar can tell the truth. */
 .bootbar i{display:block;height:100%;width:38%;border-radius:3px;background:var(--act);
   animation:sweep 1.25s cubic-bezier(.65,0,.35,1) infinite}
+.bootbar.known i{animation:none;transition:width .35s cubic-bezier(.32,.72,0,1)}
 @keyframes sweep{0%{transform:translateX(-110%)}100%{transform:translateX(370%)}}
 #boot span{font:550 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--faint);
   text-transform:uppercase}
@@ -797,6 +921,8 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   .segmented button{padding:8px 12px;font-size:11.5px}
   .segmented button .sd{display:none}
   .brand i{display:none}
+  #searchWrap{max-width:210px}
+  #searchKbd{display:none}
 }
 @media (max-width:960px){
   /* No left rail at all here, so the dock only has to clear the map key. */
@@ -804,6 +930,19 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   #csvBtn span,#validateBtn span{display:none}
   #csvBtn,#validateBtn{padding:8px 9px}
   #left{display:none} #queueToggle{display:none}
+  /* The dock is squeezed between the map key and the inspector here, and the
+     caption and the tick labels are the two things in it that wrap into a
+     column rather than shortening. The year and the scrubber are the controls;
+     the prose is commentary, and commentary is what goes. */
+  #caption{display:none}
+  .ticks span:nth-child(2){display:none}
+  /* The search collapses to its icon rather than being dropped: it is the only
+     way to reach a place by name, and the narrow widths are exactly where
+     hunting for the right pixel is hardest. */
+  #searchWrap{flex:none;width:auto;min-width:0;max-width:none}
+  #searchBtn{padding:8px 9px}
+  #searchBtn .ph{display:none}
+  #city{max-width:190px}
 }
 @media (max-width:720px){
   :root{--pad:8px}
@@ -811,6 +950,7 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   .brand .txt{gap:0}
   .vr{display:none}
   #city{max-width:132px;font-size:11px}
+  #searchWrap{order:-1}
   .segmented{margin-left:auto;margin-right:0}
   .segmented button{padding:7px 10px;font-size:11px}
   #validateBtn{display:none}
@@ -850,6 +990,14 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
 
   <span class="vr"></span>
   <select id="city" title="Study area"></select>
+
+  <div id="searchWrap">
+    <div id="searchBtn" role="button" tabindex="0" title="Search this study area">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6.2" cy="6.2" r="4.3" stroke="currentColor" stroke-width="1.35"/><path d="M9.5 9.5l2.6 2.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>
+      <span class="ph">Search a place, structure or coordinate</span>
+      <kbd id="searchKbd">/</kbd>
+    </div>
+  </div>
 
   <div class="segmented" id="modes">
     <button data-mode="timeline" class="on"><span class="sd"></span>Timeline</button>
@@ -914,6 +1062,8 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
       </div>
     </section>
 
+    <nav class="panel" id="inspectTabs"></nav>
+
     <section class="panel" id="verdict"></section>
 
     <section class="panel" id="downstream"></section>
@@ -937,6 +1087,9 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
   <button data-base="sat">Satellite</button>
 </div>
 
+<div class="panel" id="hydrating">
+  <span class="hspin"></span><span id="hydratingText">Reading the measurement layers</span>
+</div>
 <div class="panel" id="toast"></div>
 <div class="panel" id="hint"></div>
 
@@ -975,6 +1128,22 @@ kbd{font:500 9.5px/1 var(--mono);color:var(--faint);border:1px solid var(--line)
       </div>
     </div>
   </footer>
+</div>
+
+<div id="palette">
+  <div class="panel pbox">
+    <div class="pinput">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7.1" cy="7.1" r="4.9" stroke="currentColor" stroke-width="1.4"/><path d="M10.8 10.8l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <input id="pq" placeholder="Search a place, structure or coordinate&#8230;"
+             autocomplete="off" spellcheck="false">
+    </div>
+    <div id="presults"></div>
+    <div class="pfoot">
+      <span><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move</span>
+      <span><kbd>&#8629;</kbd> go</span>
+      <span><kbd>esc</kbd> close</span>
+    </div>
+  </div>
 </div>
 
 <div id="modal"><div class="sheet" id="sheet"></div><button id="modalClose">&times;</button></div>
@@ -1023,6 +1192,72 @@ var CITIES = {
     hotspots: []
   }
 };
+
+// ---------------------------------------------------------------------------
+// GAZETTEER
+// ---------------------------------------------------------------------------
+// Localities inside each study rectangle, so the tool can be navigated the way
+// the people using it describe a place: by name. There is no geocoding service
+// behind this and deliberately so — a screening desk should not need the
+// network to find Bellandur, and an online geocoder would happily fly the map
+// to a Bellandur in another state.
+//
+// Coordinates are locality centroids, good to a few hundred metres. That is
+// the right precision for "take me there" and the wrong precision for a
+// screening, which is why a search result moves the map and never issues a
+// verdict on its own.
+//
+// Each entry also gives flagged structures a human label: the nearest name
+// beats "161 m² structure" as a way to tell two rows apart.
+var GAZETTEER = {
+  bengaluru: [
+    {name:'Bellandur',            kind:'lake',     lon:77.6660, lat:12.9304},
+    {name:'Varthur',              kind:'lake',     lon:77.7180, lat:12.9400},
+    {name:'Bellandur Lake bund',  kind:'lake',     lon:77.6690, lat:12.9260},
+    {name:'HSR Layout',           kind:'locality', lon:77.6480, lat:12.9120},
+    {name:'Parangipalya',         kind:'locality', lon:77.6403, lat:12.9114},
+    {name:'Haralur',              kind:'locality', lon:77.6459, lat:12.9236},
+    {name:'Kasavanahalli',        kind:'locality', lon:77.6759, lat:12.9324},
+    {name:'Kaikondrahalli',       kind:'locality', lon:77.6690, lat:12.9160},
+    {name:'Sarjapur Road',        kind:'road',     lon:77.6880, lat:12.9130},
+    {name:'Panathur',             kind:'locality', lon:77.7078, lat:12.9324},
+    {name:'Devarabisanahalli',    kind:'locality', lon:77.6870, lat:12.9420},
+    {name:'Kadubeesanahalli',     kind:'locality', lon:77.6960, lat:12.9430},
+    {name:'Marathahalli',         kind:'locality', lon:77.7010, lat:12.9560},
+    {name:'Karthik Nagar',        kind:'locality', lon:77.7000, lat:12.9620},
+    {name:'Doddanekkundi',        kind:'locality', lon:77.6950, lat:12.9660},
+    {name:'Outer Ring Road',      kind:'road',     lon:77.6830, lat:12.9350},
+    {name:'Iblur',                kind:'locality', lon:77.6520, lat:12.9250},
+    {name:'Ambalipura',           kind:'locality', lon:77.6600, lat:12.9210},
+    {name:'Carmelaram',           kind:'locality', lon:77.7050, lat:12.9070},
+    {name:'Halanayakanahalli',    kind:'locality', lon:77.6960, lat:12.9080},
+    {name:'Bellandur Amanikere',  kind:'lake',     lon:77.6640, lat:12.9350},
+    {name:'Agara Lake',           kind:'lake',     lon:77.6400, lat:12.9210},
+    {name:'Kaikondrahalli Lake',  kind:'lake',     lon:77.6770, lat:12.9130},
+    {name:'Harlur Lake',          kind:'lake',     lon:77.6510, lat:12.9200}
+  ],
+  chennai: [
+    {name:'Pallikaranai marsh',   kind:'lake',     lon:80.2180, lat:12.9420},
+    {name:'Perungudi',            kind:'locality', lon:80.2420, lat:12.9620},
+    {name:'Sholinganallur',       kind:'locality', lon:80.2270, lat:12.9010},
+    {name:'Thoraipakkam',         kind:'locality', lon:80.2320, lat:12.9450},
+    {name:'Velachery',            kind:'locality', lon:80.2180, lat:12.9790},
+    {name:'Medavakkam',           kind:'locality', lon:80.1930, lat:12.9180}
+  ]
+};
+
+// Nearest gazetteer name to a point, for labelling something the gazetteer
+// does not itself contain — a flagged footprint, a clicked plot. Returns null
+// beyond the cutoff rather than claiming a plot is "in" a locality two
+// kilometres away.
+function nearestPlace(lon, lat, maxM){
+  var list = GAZETTEER[state.city] || [], best = null, bestD = Infinity;
+  for(var i = 0; i < list.length; i++){
+    var d = metresBetween(lon, lat, list[i].lon, list[i].lat);
+    if(d < bestD){ bestD = d; best = list[i]; }
+  }
+  return (best && bestD <= (maxM || 1400)) ? {place: best, m: Math.round(bestD)} : null;
+}
 
 // Raster layers fetched from data/<city>/.
 var LAYERS = ['rgb2005','rgb2025','floodprone','flowpath','historic','present','encroached'];
@@ -1147,7 +1382,12 @@ var state = {
   // an answer that was reasoned under the rule the officer has just left.
   corpus: null, centroids: null, lastAnswer: null, asking: false,
   buildingsDropped: null,
-  queueOpen: true, probeEl: null,
+  queueOpen: true, probeEl: null, inspectTab: 'verdict',
+  // Which overlays the reader has switched off, and how loud the rest are.
+  // Defaults chosen so the ground is readable through the wash on first paint:
+  // at full strength five overlays at once is a quilt, and the officer needs
+  // to see the plot they are judging, not only the constraints on it.
+  layerOff: {}, overlay: 0.8, legendShut: false, hintShown: false,
   // 'sat' = Esri imagery, 'map' = pale Esri gray canvas. Set per mode, and
   // overridable from the switch in the bottom-right corner.
   base: 'sat'
@@ -1572,6 +1812,47 @@ function tint(url, hex, edge, hatch){
   });
 }
 
+// What the boot screen says while the measurement layers decode. Named layers
+// rather than a bare percentage, because "reading the distance field" tells an
+// officer the tool is doing something specific and a spinner does not.
+var BOOT_NAME = {
+  encroached: 'construction on former water',
+  buffers:    'the distance field',
+  history:    'the water record, 1984\u20132021',
+  hydro:      'catchment and terrain',
+  routing:    'the drainage routing'
+};
+// The layer id is passed in rather than looked up: the decode order lives in
+// a local inside loadCity, and reaching for it from here is a ReferenceError
+// that leaves the boot screen up forever.
+// Reports into whichever surface is currently up. The boot screen comes down
+// as soon as the map has imagery to draw, which is well before the measurement
+// layers finish decoding, so the same progress has to survive that handover —
+// otherwise the tool spends half a minute looking finished and answering no
+// clicks.
+function bootStep(done, total, id){
+  var pct = total ? Math.max(4, Math.round(done / total * 100)) : 0;
+  var what = done >= total ? '' : (BOOT_NAME[id] || 'the measurement layers');
+  var counter = total ? '  \u00b7  ' + Math.min(done + 1, total) + ' of ' + total : '';
+
+  var el = document.getElementById('boot');
+  if(el && !el.classList.contains('gone') && total){
+    var bar = el.querySelector('.bootbar');
+    if(bar){
+      bar.classList.add('known');
+      bar.querySelector('i').style.width = pct + '%';
+    }
+    var label = el.querySelector('span');
+    if(label) label.textContent = done >= total ? 'Ready' : 'Reading ' + what + counter;
+  }
+
+  var pill = document.getElementById('hydrating');
+  if(!pill) return;
+  if(done >= total || !total){ pill.classList.remove('on'); return; }
+  document.getElementById('hydratingText').textContent = 'Reading ' + what + counter;
+  pill.classList.add('on');
+}
+
 function loadCity(key){
   state.city = key;
   var c = CITIES[key];
@@ -1581,6 +1862,8 @@ function loadCity(key){
   document.getElementById('verdict').classList.remove('on');
   document.getElementById('downstream').classList.remove('on');
   document.getElementById('retention').classList.remove('on');
+  var strip = document.getElementById('inspectTabs');
+  if(strip){ strip.classList.remove('on'); strip.innerHTML = ''; }
   if(map.getSource('route'))
     map.getSource('route').setData({type:'FeatureCollection', features:[]});
   hideAskDock();
@@ -1632,13 +1915,32 @@ function loadCity(key){
   }));
 
   // Sequential, so the large decodes never contend for the main thread at once.
+  //
+  // This is the slow part of the load — five full-resolution PNGs decoded into
+  // ImageData, around half a minute on a laptop — and it used to run behind a
+  // boot screen that said one unchanging sentence. Half a minute of no change
+  // is indistinguishable from a hang, and the first thing anyone does is
+  // reload, which starts it again. It reports what it is decoding and how far
+  // along it is.
   Promise.all(jobs).then(function(){
-    return SAMPLED.concat(DATA_LAYERS).reduce(function(chain, id){
+    // Computed HERE and not a line earlier: state.have is filled in by the
+    // jobs this is waiting on, so a list built before they resolve is empty,
+    // hydrates nothing, and still resolves — which sets state.ready on a tool
+    // that cannot sample a single pixel.
+    var hydrateList = SAMPLED.concat(DATA_LAYERS).filter(function(id){
+      return state.have[id];
+    });
+    var total = hydrateList.length, done = 0;
+    bootStep(0, total, hydrateList[0]);
+    return hydrateList.reduce(function(chain, id){
       return chain.then(function(){
-        if(!state.have[id]) return;
-        var exact = DATA_LAYERS.indexOf(id) !== -1;
-        return makeSampler('data/'+key+'/'+id+'.png', c.bounds, exact)
-          .then(function(sm){ state.samplers[id] = sm; });
+        return makeSampler('data/'+key+'/'+id+'.png', c.bounds,
+                           DATA_LAYERS.indexOf(id) !== -1)
+          .then(function(sm){
+            state.samplers[id] = sm;
+            done++;
+            bootStep(done, total, hydrateList[done]);
+          });
       });
     }, Promise.resolve());
   }).then(function(){ state.ready = true; });
@@ -1663,9 +1965,17 @@ function loadCity(key){
         // exported from one that arrived complete and unusable — so it told an
         // officer who had just run the export to go and run the export.
         state.buildingsDropped = g ? {kept: usable.length, total: g.features.length} : null;
-        state.centroids = usable.length ? usable.map(function(f){
+        // The locality is attached here, once, rather than looked up per
+        // keystroke in search: 3,000 footprints against two dozen places is
+        // 70,000 distance calls, which is nothing on load and far too much
+        // between one typed character and the next. The index into the
+        // feature list rides along so a search hit can open the footprint
+        // itself rather than only fly to its centre.
+        state.centroids = usable.length ? usable.map(function(f, i){
           var c = centroidOf(f);
-          return {lon:c[0], lat:c[1], p:f.properties};
+          var near = nearestPlace(c[0], c[1], 1600);
+          return {lon:c[0], lat:c[1], p:f.properties, i:i,
+                  placeName: near ? near.place.name : null};
         }) : null;
         state.buildings = usable.length ? {type:'FeatureCollection', features:usable} : null;
         map.getSource('buildings').setData(
@@ -1800,8 +2110,28 @@ function update(){
     map.setPaintProperty('route-line','line-opacity', ro);
     map.setPaintProperty('route-pt','icon-opacity', ro);
   }
-  function set(id,v){ if(map.getLayer(id)) map.setPaintProperty(id,'raster-opacity',v); }
+  // Every overlay opacity in this function is a DESIGNED value — the mix that
+  // makes each mode legible. The control does not replace them, it scales
+  // them, so turning the wash down keeps the relative weighting the modes were
+  // tuned for instead of flattening five layers to one number.
+  //
+  // The true-colour composites are the ground, not an overlay, so they are
+  // exempt: dimming those would dim the thing the overlays are being read
+  // against, which is the opposite of what the reader asked for.
+  function set(id, v){
+    if(!map.getLayer(id)) return;
+    var GROUND = (id === 'rgb2005' || id === 'rgb2025');
+    if(!GROUND){
+      if(state.layerOff[LAYER_KEY[id] || id]) v = 0;
+      else v *= state.overlay;
+    }
+    map.setPaintProperty(id, 'raster-opacity', v);
+  }
 }
+
+// Two rasters render one idea — the lost-water wash and its hatch — so the key
+// lists it once and the toggle has to reach both.
+var LAYER_KEY = {historic:'historic', historicHatch:'historic'};
 
 // ---------------------------------------------------------------------------
 // BASEMAP
@@ -1909,7 +2239,8 @@ function applyMode(){
 
   var hint = document.getElementById('hint');
   clearTimeout(hintTimer);
-  if(m === 'approval' && !state.lastCheck){
+  if(m === 'approval' && !state.lastCheck && !state.hintShown){
+    state.hintShown = true;
     hint.innerHTML = '<b>Click any plot on the map</b>'
       + '<span>The same rasters drawn here are read back pixel by pixel '
       + '\u2014 no server, no lookup.</span>';
@@ -2812,8 +3143,15 @@ function drawRoute(route){
 function checkPlot(lngLat){
   var S = state.samplers;
   if(!S.buffers || !S.history){
-    toast('Measurement layers missing — re-run gee_blue_grid.js, then ./fetch_layers.sh '
-      + state.city); return;
+    // Two different states wore one message. During the first half-minute the
+    // layers are decoding and the only correct advice is "wait"; telling an
+    // officer to go and re-run an Earth Engine export is both wrong and the
+    // most expensive possible wrong answer.
+    toast(state.have.buffers
+      ? 'Still reading the measurement layers \u2014 try that click again in a moment.'
+      : 'Measurement layers missing \u2014 re-run gee_blue_grid.js, then ./fetch_layers.sh '
+        + state.city);
+    return;
   }
   var rule = RULESETS[state.rule];
   var ctx = siteContext(lngLat, rule);
@@ -2848,6 +3186,7 @@ function checkPlot(lngLat){
               driversFor(state.lastCheck));
   renderDownstream(ctx);
   renderRetention(ctx);
+  syncInspector();
   drawRoute(ctx.route);
 }
 
@@ -2903,6 +3242,7 @@ function selectBuilding(f){
   // question "who receives it" is the same question and gets the same answer.
   renderDownstream(ctx);
   renderRetention(ctx);
+  syncInspector();
   drawRoute(ctx && ctx.route);
 }
 
@@ -2910,17 +3250,102 @@ var CHEV = '<svg class="chev" width="11" height="11" viewBox="0 0 12 12" fill="n
   + '<path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.5" '
   + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+// ---------------------------------------------------------------------------
+// The inspector tab strip
+// ---------------------------------------------------------------------------
+// Which tabs exist is decided by which panels actually rendered, not by a
+// fixed list: outside the study area there is no route and no retention
+// figure, and a tab that opens onto an empty panel is worse than no tab.
+// The chosen tab persists across re-checks, so an officer comparing two plots
+// on the retention figure is not sent back to the verdict on every click.
+var INSPECT_TABS = [
+  {id:'verdict',    label:'Verdict'},
+  {id:'downstream', label:'Downstream'},
+  {id:'retention',  label:'Retention'}
+];
+
+function syncInspector(){
+  var strip = document.getElementById('inspectTabs');
+  var live = INSPECT_TABS.filter(function(t){
+    return document.getElementById(t.id).classList.contains('on');
+  });
+
+  // One panel or none is not a choice, so no strip is drawn and the panel
+  // simply shows.
+  if(live.length < 2){
+    strip.classList.remove('on');
+    strip.innerHTML = '';
+    INSPECT_TABS.forEach(function(t){
+      document.getElementById(t.id).style.display = '';
+    });
+    return;
+  }
+
+  if(live.every(function(t){ return t.id !== state.inspectTab; }))
+    state.inspectTab = live[0].id;
+
+  strip.innerHTML = live.map(function(t){
+    return '<button data-tab="' + t.id + '"' +
+      (t.id === state.inspectTab ? ' class="on"' : '') + '>' +
+      '<span>' + t.label + '</span>' +
+      '<span class="tval">' + esc(inspectTabValue(t.id)) + '</span></button>';
+  }).join('');
+  strip.classList.add('on');
+  strip.querySelectorAll('button').forEach(function(b){
+    b.onclick = function(){ state.inspectTab = b.dataset.tab; syncInspector(); };
+  });
+
+  INSPECT_TABS.forEach(function(t){
+    var el = document.getElementById(t.id);
+    var on = t.id === state.inspectTab;
+    el.style.display = (el.classList.contains('on') && on) ? '' : 'none';
+  });
+  document.getElementById('rightScroll').scrollTop = 0;
+}
+
+// A headline figure per tab, so the strip carries information rather than
+// only navigation — the officer can see the retention figure without opening
+// the tab that explains it.
+function inspectTabValue(id){
+  var ck = state.lastCheck;
+  if(!ck) return '';
+  if(id === 'verdict') return OUTCOME[ck.out.d] ? OUTCOME[ck.out.d].ic : '';
+  if(id === 'downstream'){
+    var r = ck.ctx && ck.ctx.route;
+    return (r && r.traced && r.lengthM != null) ? Math.round(r.lengthM) + ' m' : '\u2014';
+  }
+  if(id === 'retention'){
+    var v = ck.ctx && ck.ctx.rec.retentionRequiredM3;
+    return v === null || v === undefined ? '\u2014' : v + ' m\u00b3';
+  }
+  return '';
+}
+
 function showVerdict(r, rows, p, actions, drivers){
   var el = document.getElementById('verdict');
   drivers = (drivers || []).filter(Boolean);
   actions = (actions || []).slice();
   if(p) actions.push({label:'Generate evidence brief', fn:function(){ writeBrief(p); }});
 
+  // decide() returns one reason per branch that fired, joined into a
+  // paragraph. Read straight into the banner that paragraph ran to six lines
+  // before the reader reached a single number, which inverts the panel: the
+  // measurements ARE the finding and the prose explains them. The first
+  // sentence leads, the rest folds away under the drivers.
+  //
+  // Split on sentence ends rather than on the join, because a single branch
+  // can itself carry two sentences — the occurrence explanation is one — and
+  // splitting on the join would put the whole of it in the lead.
+  var reason = String(r.s || '').trim();
+  var cut = reason.search(/\.\s+(?=[A-Z\u2018\u201c])/);
+  var lead = cut === -1 ? reason : reason.slice(0, cut + 1);
+  var rest = cut === -1 ? '' : reason.slice(cut + 1).trim();
+
   el.innerHTML =
     '<div class="vbanner ' + r.c + '">' +
       '<div class="vrow"><span class="vic"><span>' + r.ic + '</span></span>' +
         '<span class="vt">' + esc(r.t) + '</span></div>' +
-      '<div class="vsub">' + esc(r.s) + '</div>' +
+      '<div class="vsub">' + esc(lead) + '</div>' +
     '</div>' +
 
     (drivers.length
@@ -2933,6 +3358,11 @@ function showVerdict(r, rows, p, actions, drivers){
           }).join('') +
         '</div>'
       : '') +
+
+    (rest ? '<details class="fold why">' +
+        '<summary>' + CHEV + '<span class="lbl">Why this verdict</span></summary>' +
+        '<div class="foldbody"><p class="wtext">' + esc(rest) + '</p></div>' +
+      '</details>' : '') +
 
     // Collapsed by default once drivers are carrying the finding. The full
     // table stays one click away because the certificate reproduces it and an
@@ -2978,8 +3408,10 @@ function showVerdict(r, rows, p, actions, drivers){
 function writeBrief(p){
   var f = state.selectedF;
   if(!f || !state.samplers.buffers){
-    toast('Measurement layers missing — re-run gee_blue_grid.js, then ./fetch_layers.sh '
-      + state.city);
+    toast(state.have.buffers
+      ? 'Still reading the measurement layers \u2014 try that again in a moment.'
+      : 'Measurement layers missing \u2014 re-run gee_blue_grid.js, then ./fetch_layers.sh '
+        + state.city);
     return;
   }
   var c = centroidOf(f);
@@ -4495,10 +4927,22 @@ function renderList(){
       var p = f.properties;
       var col = p.verdict==='RED_FORMER_WATER_BODY' ? PALETTE.encroached
               : p.verdict==='RED_BLOCKS_DRAINAGE' ? PALETTE.flowpath : '#6b7280';
+      // Forty rows all reading "<n> m\u00b2 structure" are forty rows that cannot be
+      // told apart, and the officer has to click each one to find out where it
+      // is. The nearest locality is the only human handle this layer can
+      // honestly carry \u2014 it holds no name, khata or survey number, and
+      // inventing one is the thing refusal.cannot-identify-owner exists to
+      // stop. The area stays, as the thing that distinguishes two rows in the
+      // same locality.
+      var c = centroidOf(f);
+      var near = c ? nearestPlace(c[0], c[1], 1600) : null;
+      var label = near
+        ? near.place.name + ' \u00b7 ' + Math.round(p.area_in_meters) + ' m\u00b2'
+        : Math.round(p.area_in_meters) + ' m\u00b2 structure';
       return '<div class="item" data-i="'+i+'">'+
         '<span class="rank">'+(i+1)+'</span>'+
         '<span class="dot" style="background:'+col+'"></span>'+
-        '<span class="body"><span class="nm">'+Math.round(p.area_in_meters)+' m\u00b2 structure</span>'+
+        '<span class="body"><span class="nm">'+esc(label)+'</span>'+
         '<span class="sub">'+(+p.upstream_km2).toFixed(2)+' km\u00b2 upstream \u00b7 '
           +(+p.hand_m).toFixed(1)+' m above drain</span></span>'+
         '<span class="sc">'+(+p.risk_score).toFixed(0)+'</span></div>';
@@ -4585,15 +5029,68 @@ function renderLegend(){
     if(ck.ctx.route.receiving.length) keys.push('routeMark');
   }
 
-  document.getElementById('legend').innerHTML =
+  // The key is also the control. A reader who cannot see the ground under five
+  // overlays does not want a longer explanation of the colours, they want the
+  // colours out of the way — so every row is a switch and the whole wash has
+  // an intensity. Keeping the two in one panel means the thing that explains a
+  // layer is the thing that turns it off.
+  var host = document.getElementById('legend');
+  host.innerHTML =
     '<div class="lhead"><span class="lbl">' + esc(LEGEND_TITLE[m] || 'Map key')
-      + '</span></div>' +
+      + '</span>' +
+      (Object.keys(state.layerOff).length
+        ? '<button class="lreset" id="lreset" title="Show every layer again">reset</button>'
+        : '') +
+      '<button class="lfold" id="lfold" title="Collapse the key">' +
+        '<svg width="11" height="11" viewBox="0 0 12 12" fill="none">' +
+        '<path d="M2.6 4.4L6 7.8l3.4-3.4" stroke="currentColor" stroke-width="1.5" ' +
+        'stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+    '</div>' +
     '<div class="lbody">' + keys.map(function(k){
       var r = LEGEND_ROWS[k];
-      return '<div class="key"><span class="sw ' + r.sw + '" style="background:'
+      // The route is drawn in answer to a click, not switched on by the
+      // reader, so those two rows stay legend and do not pretend to toggle.
+      var fixed = (k === 'routeLine' || k === 'routeMark');
+      var off = !!state.layerOff[k];
+      return '<div class="key' + (fixed ? ' fixed' : '') + (off ? ' off' : '') + '"'
+        + (fixed ? '' : ' role="switch" tabindex="0" aria-checked="' + (!off) + '"'
+            + ' data-k="' + k + '" title="' + (off ? 'Show' : 'Hide') + ' this layer"')
+        + '><span class="sw ' + r.sw + '" style="background:'
         + (r.c || PALETTE[k]) + '"></span><span><b>' + r.b + '</b><i>' + r.i
         + '</i></span></div>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' +
+    '<label class="lwash"><span>Overlay</span>' +
+      '<input id="washRange" type="range" min="15" max="100" step="5" value="'
+        + Math.round(state.overlay * 100) + '" title="How strongly the overlays paint">' +
+      '<b id="washVal">' + Math.round(state.overlay * 100) + '</b></label>';
+
+  host.querySelectorAll('.key[data-k]').forEach(function(el){
+    function flip(){
+      var k = el.dataset.k;
+      if(state.layerOff[k]) delete state.layerOff[k]; else state.layerOff[k] = 1;
+      renderLegend(); update();
+    }
+    el.onclick = flip;
+    el.onkeydown = function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flip(); }
+    };
+  });
+  var reset = document.getElementById('lreset');
+  if(reset) reset.onclick = function(e){
+    e.stopPropagation();
+    state.layerOff = {}; renderLegend(); update();
+  };
+  host.classList.toggle('shut', !!state.legendShut);
+  document.getElementById('lfold').onclick = function(){
+    state.legendShut = !state.legendShut;
+    host.classList.toggle('shut', state.legendShut);
+  };
+  var wash = document.getElementById('washRange');
+  wash.oninput = function(){
+    state.overlay = (+wash.value) / 100;
+    document.getElementById('washVal').textContent = wash.value;
+    update();
+  };
 }
 
 // Every one of these is a recoverable notice about a missing optional input,
@@ -4656,6 +5153,208 @@ document.getElementById('storageLpm2').onchange = function(){
   state.lastAnswer = null;
   if(state.lastCheck) checkPlot(state.lastCheck.lngLat);
 };
+
+// ===========================================================================
+// SEARCH
+// ===========================================================================
+// Three kinds of thing can be searched, because three kinds of thing are how
+// a plot actually gets described to you: a place name, a flagged structure,
+// and a coordinate copied off a document. Matching is a plain substring with a
+// prefix bonus rather than a fuzzy score — the index is a few thousand rows
+// and an officer typing "bell" wants Bellandur first, not the cleverest match.
+var pal = {open: false, sel: 0, rows: []};
+
+// "12.9324, 77.6759" and the loose variants of it people actually paste.
+function parseCoords(q){
+  var m = String(q).match(
+    /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(!m) return null;
+  var a = parseFloat(m[1]), b = parseFloat(m[2]);
+  if(!isFinite(a) || !isFinite(b)) return null;
+  var b0 = CITIES[state.city].bounds;
+  function inside(lat, lon){
+    return lat >= b0[1] && lat <= b0[3] && lon >= b0[0] && lon <= b0[2];
+  }
+  // Latitude first is the convention, but a pair the wrong way round is a
+  // common paste and silently flying to the sea helps nobody. If only the
+  // swapped reading lands in the study area, take it and say so.
+  if(inside(a, b)) return {lat: a, lon: b, swapped: false};
+  if(inside(b, a)) return {lat: b, lon: a, swapped: true};
+  if(Math.abs(a) <= 90) return {lat: a, lon: b, swapped: false, outside: true};
+  return null;
+}
+
+function searchIndex(q){
+  var t = q.trim().toLowerCase();
+  var out = [];
+
+  var co = parseCoords(q);
+  if(co) out.push({
+    group: 'Coordinate', icon: 'pin', score: 1000,
+    name: co.lat.toFixed(5) + ', ' + co.lon.toFixed(5),
+    sub: co.outside ? 'outside this study area — nothing is measured there'
+       : co.swapped ? 'read as lat, lon — the pair was the other way round'
+       : 'go to this point',
+    run: function(){ goTo(co.lon, co.lat, 17, !co.outside); }
+  });
+
+  if(t.length >= 1){
+    (GAZETTEER[state.city] || []).forEach(function(p){
+      var i = p.name.toLowerCase().indexOf(t);
+      if(i === -1) return;
+      out.push({
+        group: 'Places', icon: p.kind === 'lake' ? 'lake' : p.kind === 'road' ? 'road' : 'pin',
+        score: 500 - (i === 0 ? 0 : 40) - p.name.length,
+        name: p.name,
+        sub: p.kind === 'lake' ? 'water body' : p.kind === 'road' ? 'road' : 'locality',
+        run: function(){ goTo(p.lon, p.lat, p.kind === 'road' ? 15 : 15.6, false); }
+      });
+    });
+  }
+
+  // Flagged structures, searchable by the locality they stand in — which is
+  // the only human handle they have. The layer carries no name, no khata and
+  // no survey number, and inventing one would be the exact thing every
+  // refusal chunk in the corpus says this tool must not do.
+  if(t.length >= 2 && state.centroids){
+    var hits = 0;
+    for(var i = 0; i < state.centroids.length && hits < 6; i++){
+      var c = state.centroids[i];
+      if(!c.placeName) continue;
+      if(c.placeName.toLowerCase().indexOf(t) === -1) continue;
+      hits++;
+      out.push((function(c){
+        return {
+          group: 'Flagged structures', icon: 'build',
+          score: 300 - Math.round(+c.p.risk_score || 0) / 100,
+          name: c.placeName + ' · ' + Math.round(c.p.area_in_meters) + ' m²',
+          sub: 'risk ' + (+c.p.risk_score).toFixed(0) + ' · '
+             + (+c.p.upstream_km2).toFixed(2) + ' km² upstream',
+          run: function(){
+            goTo(c.lon, c.lat, 17.4, false);
+            var f = state.buildings.features[c.i];
+            if(f) selectBuilding(f);
+          }
+        };
+      })(c));
+    }
+  }
+
+  var ACTIONS = [
+    {n:'Timeline', s:'what was here, and what happened to it', f:function(){ setMode('timeline'); }},
+    {n:'Plot check', s:'screen a plot against a buffer regime', f:function(){ setMode('approval'); }},
+    {n:'Downstream', s:'who receives what this ground sheds', f:function(){ setMode('impact'); }},
+    {n:'Validation', s:'how this compares with the municipal record',
+     f:function(){ document.getElementById('validateBtn').click(); }},
+    {n:'Export CSV', s:'the ranked list as a spreadsheet',
+     f:function(){ document.getElementById('csvBtn').click(); }}
+  ];
+  if(t.length >= 2) ACTIONS.forEach(function(a){
+    var i = a.n.toLowerCase().indexOf(t);
+    if(i === -1 && a.s.toLowerCase().indexOf(t) === -1) return;
+    out.push({group:'Go to', icon:'act', score: 200 - (i === 0 ? 0 : 40),
+              name: a.n, sub: a.s, run: a.f});
+  });
+
+  return out.sort(function(a, b){ return b.score - a.score; }).slice(0, 12);
+}
+
+// Moves the map, and in plot check also screens the point. A place centroid is
+// good to a few hundred metres, so it is never screened on its own — only an
+// explicit coordinate is precise enough to carry a verdict.
+function goTo(lon, lat, zoom, screen){
+  map.flyTo({center: [lon, lat], zoom: zoom, duration: 1100});
+  // The screening is not waited on, because it does not depend on the map:
+  // readSite samples the decoded rasters by coordinate, and the flight is
+  // decoration over the top of it. Hanging it off moveend made it a race that
+  // lost whenever the camera settled early or another flight was still
+  // running, and a search that flew somewhere and silently declined to screen
+  // it is worse than one that never offered.
+  if(screen && state.mode === 'approval' && state.samplers.buffers)
+    checkPlot({lng: lon, lat: lat});
+}
+
+var PICO = {
+  pin:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 12.5S2.6 8.9 2.6 5.9a4.4 4.4 0 118.8 0c0 3-4.4 6.6-4.4 6.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="5.8" r="1.5" fill="currentColor"/></svg>',
+  lake:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M1.8 5c1.1 0 1.1-1.6 2.2-1.6S5.1 5 6.2 5s1.1-1.6 2.2-1.6S9.5 5 10.6 5s1.1-1.6 2.2-1.6M1.8 9.4c1.1 0 1.1-1.6 2.2-1.6s1.1 1.6 2.2 1.6 1.1-1.6 2.2-1.6 1.1 1.6 2.2 1.6 1.1-1.6 2.2-1.6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>',
+  road:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M4.4 1.8L2.4 12.2M9.6 1.8l2 10.4M7 2.6v1.8M7 6.2v1.8M7 9.8v1.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>',
+  build:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2.4 12.2V4.3L7 1.8l4.6 2.5v7.9" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5.6 12.2V8h2.8v4.2" stroke="currentColor" stroke-width="1.3"/></svg>',
+  act:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2.4 7h9.2M8 3.4L11.6 7 8 10.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+
+function renderPalette(){
+  var host = document.getElementById('presults');
+  if(!pal.rows.length){
+    var q = document.getElementById('pq').value.trim();
+    host.innerHTML = '<div class="pempty">' + (q
+      ? 'Nothing here matches “' + esc(q) + '”.<br>Try a locality, or paste a '
+        + 'lat, lon inside the study area.'
+      : 'Type a locality, a flagged structure, or a lat, lon.') + '</div>';
+    return;
+  }
+  var html = '', lastGroup = null;
+  pal.rows.forEach(function(r, i){
+    if(r.group !== lastGroup){ html += '<div class="pgroup">' + esc(r.group) + '</div>'; lastGroup = r.group; }
+    html += '<div class="pres' + (i === pal.sel ? ' sel' : '') + '" data-i="' + i + '">'
+      + '<span class="pico">' + (PICO[r.icon] || PICO.pin) + '</span>'
+      + '<span class="pbody"><span class="pnm">' + esc(r.name) + '</span>'
+      + '<span class="psub">' + esc(r.sub) + '</span></span>'
+      + '<span class="pgo">↵</span></div>';
+  });
+  host.innerHTML = html;
+  host.querySelectorAll('.pres').forEach(function(el){
+    el.onmouseenter = function(){ pal.sel = +el.dataset.i; paintSel(); };
+    el.onclick = function(){ runSel(+el.dataset.i); };
+  });
+  var sel = host.querySelector('.pres.sel');
+  if(sel) sel.scrollIntoView({block: 'nearest'});
+}
+function paintSel(){
+  document.querySelectorAll('#presults .pres').forEach(function(el){
+    el.classList.toggle('sel', +el.dataset.i === pal.sel);
+  });
+}
+function runSel(i){
+  var r = pal.rows[i === undefined ? pal.sel : i];
+  if(!r) return;
+  closePalette();
+  r.run();
+}
+function refreshPalette(){
+  pal.rows = searchIndex(document.getElementById('pq').value);
+  pal.sel = 0;
+  renderPalette();
+}
+function openPalette(seed){
+  pal.open = true;
+  document.getElementById('palette').classList.add('on');
+  var q = document.getElementById('pq');
+  q.value = seed || '';
+  refreshPalette();
+  q.focus(); q.select();
+}
+function closePalette(){
+  pal.open = false;
+  document.getElementById('palette').classList.remove('on');
+}
+
+(function wireSearch(){
+  var q = document.getElementById('pq');
+  document.getElementById('searchBtn').onclick = function(){ openPalette(); };
+  document.getElementById('searchBtn').onkeydown = function(e){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openPalette(); }
+  };
+  document.getElementById('palette').onclick = function(e){
+    if(e.target === this) closePalette();
+  };
+  q.oninput = refreshPalette;
+  q.onkeydown = function(e){
+    if(e.key === 'ArrowDown'){ e.preventDefault(); pal.sel = Math.min(pal.sel + 1, pal.rows.length - 1); renderPalette(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); pal.sel = Math.max(pal.sel - 1, 0); renderPalette(); }
+    else if(e.key === 'Enter'){ e.preventDefault(); runSel(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closePalette(); }
+  };
+})();
 
 var citySel = document.getElementById('city');
 citySel.innerHTML = Object.keys(CITIES).map(function(k){
@@ -4744,11 +5443,17 @@ document.addEventListener('keydown', function(e){
   var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
             || (t && t.isContentEditable);
   if(e.key==='Escape'){
+    if(pal.open){ closePalette(); return; }
     if(typing) t.blur();
     document.getElementById('modal').classList.remove('on');
     return;
   }
   if(typing) return;
+  // "/" is the shortcut a map tool is expected to have, and ctrl/cmd-K is the
+  // one everything else has. Both open the same box.
+  if(e.key === '/' || ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))){
+    e.preventDefault(); openPalette(); return;
+  }
   if(e.key===' '){ e.preventDefault(); document.getElementById('play').click(); }
 });
 </script>
