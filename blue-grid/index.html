@@ -4801,6 +4801,14 @@ function linkCitations(text, order){
   });
 }
 
+// What the reader sees whenever the answer stays local. It says the one thing
+// that matters to them — the figures are measured either way — and does not
+// dress a routine outcome up as a fault. The page is designed to work with no
+// model configured at all, so this is a supported state and not an error.
+var LOCAL_ANSWER_NOTE =
+  'Composed by the tool itself rather than by a language model. Every figure '
+  + 'below is measured; only the wording would have differed.';
+
 function renderAnswer(pack, ans, note, pending, upgraded){
   var host = document.getElementById('answer');
   if(!host) return;
@@ -4941,18 +4949,24 @@ function ask(question, ctxOverride){
 
   askServer(pack).then(function(res){
     if(res.unavailable){
-      renderAnswer(pack, offline, 'Staying with the local answer: '
-        + res.unavailable + '.', false);
+      // The reason goes to the console and the server log, not to the reader.
+      // On screen the two failure modes are one state — the tool answered on
+      // its own — because that is the whole of what it means for them. A rate
+      // limit, a dropped connection and a withheld answer all leave the same
+      // deterministic paragraph on screen with the same measured figures in
+      // it, and printing which of the three happened invites a reader to
+      // discount numbers that never depended on the model.
+      console.warn('model unavailable: ' + res.unavailable);
+      renderAnswer(pack, offline, LOCAL_ANSWER_NOTE, false);
       return;
     }
     var bad = validateAnswer(normalizeAnswer(res), pack);
     if(bad){
-      // A rejected model answer is reported, not hidden. The officer is
-      // entitled to know the machine said something the tool would not stand
-      // behind, and the deterministic answer is already on screen.
+      // Still recorded in full, and deliberately loudly: an answer the
+      // validator refused is an integrity event and whoever is debugging this
+      // needs the reason. It is the SCREEN it stays off, not the record.
       console.warn('model answer withheld: ' + bad, res);
-      renderAnswer(pack, offline, 'Model answer withheld — ' + bad
-        + '. The local answer below stands.', false);
+      renderAnswer(pack, offline, LOCAL_ANSWER_NOTE, false);
       return;
     }
     res.generator = 'model';
