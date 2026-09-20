@@ -552,10 +552,18 @@ if (TRY_DIRECT_DOWNLOAD) {
 
 // Run from the Tasks tab. Export tasks get far more time than anything
 // computed interactively, which is why the building scoring lives here.
+//
+// '.geo' FIRST, and it is not optional. Geometry is a column like any other,
+// so a selectors list that names only properties exports features with a null
+// geometry — 3169 of them, every one useless to a map. The file looks right:
+// correct feature count, every property present, valid GeoJSON. It is the
+// client that falls over, reading .type off null.
+//
+// This is why the Drive route had never once produced a working file.
 Export.table.toDrive({
   collection: flagged,
   description: 'blue_grid_flagged_buildings',
   fileFormat: 'GeoJSON',
-  selectors: ['risk_score', 'verdict', 'lost_frac', 'flow_frac',
+  selectors: ['.geo', 'risk_score', 'verdict', 'lost_frac', 'flow_frac',
               'upstream_km2', 'hand_m', 'area_in_meters', 'confidence']
 });

@@ -1146,6 +1146,7 @@ var state = {
   // is rebuilt per city; lastAnswer is kept so a ruleset change can invalidate
   // an answer that was reasoned under the rule the officer has just left.
   corpus: null, centroids: null, lastAnswer: null, asking: false,
+  buildingsDropped: null,
   queueOpen: true, probeEl: null,
   // 'sat' = Esri imagery, 'map' = pale Esri gray canvas. Set per mode, and
   // overridable from the switch in the bottom-right corner.
@@ -1227,7 +1228,13 @@ function crossIcon(ratio){
 // Mean of the outer ring. Crude, and correct enough for a footprint this size
 // against a 6.36 m pixel. Third caller, so it stops being written out inline.
 function centroidOf(f){
-  var g = f.geometry;
+  var g = f && f.geometry;
+  // A feature can arrive with no geometry at all: an Earth Engine table export
+  // whose `selectors` list omits '.geo' drops it, and the file is otherwise
+  // perfectly valid GeoJSON with every property intact. Returning null here
+  // rather than throwing is what lets loadCity report that instead of dying
+  // inside a promise and leaving the boot screen up forever.
+  if(!g || !g.coordinates) return null;
   var pts = g.type === 'Polygon' ? g.coordinates[0] : g.coordinates[0][0];
   var lon = 0, lat = 0;
   pts.forEach(function(p){ lon += p[0]; lat += p[1]; });
@@ -1643,15 +1650,26 @@ function loadCity(key){
   jobs.push(
     fetch('data/'+key+'/flagged_buildings.geojson').then(function(r){return r.ok?r.json():null;})
       .catch(function(){return null;}).then(function(g){
-        state.buildings = g;
-        // Precomputed once here rather than per click. A linear scan over a
-        // few thousand of these is under a frame; recomputing the centroids
-        // inside the scan would not be.
-        state.centroids = g ? g.features.map(function(f){
+        // Centroids are precomputed once here rather than per click. A linear
+        // scan over a few thousand is under a frame; recomputing them inside
+        // the scan would not be.
+        //
+        // Drop what cannot be placed, and say how much was dropped. A layer
+        // that silently loses every footprint looks identical to one that was
+        // never exported, and the officer is entitled to know which it is.
+        var usable = g ? g.features.filter(function(f){ return !!centroidOf(f); }) : [];
+        // Recorded, not just announced. The end of loadCity reports missing
+        // inputs, and without this it cannot tell a layer that was never
+        // exported from one that arrived complete and unusable — so it told an
+        // officer who had just run the export to go and run the export.
+        state.buildingsDropped = g ? {kept: usable.length, total: g.features.length} : null;
+        state.centroids = usable.length ? usable.map(function(f){
           var c = centroidOf(f);
           return {lon:c[0], lat:c[1], p:f.properties};
         }) : null;
-        map.getSource('buildings').setData(g || {type:'FeatureCollection',features:[]});
+        state.buildings = usable.length ? {type:'FeatureCollection', features:usable} : null;
+        map.getSource('buildings').setData(
+          {type:'FeatureCollection', features: usable});
       })
   );
 
@@ -1672,7 +1690,18 @@ function loadCity(key){
       {padding: pad(), duration:900});
     renderStats(); renderList(); renderLegend(); applyMode(); update();
     var missing = LAYERS.concat(DATA_LAYERS).filter(function(l){return !state.have[l];});
+    var drop = state.buildingsDropped;
     if(missing.length) toast('Missing layers: '+missing.join(', ')+' — run gee_blue_grid.js for '+c.label+', then ./fetch_layers.sh '+key);
+    // A file that arrived and cannot be used is a different problem from one
+    // that never arrived, and it needs a different instruction. Saying "run the
+    // export task" to someone who has just run it sends them round the loop.
+    else if(drop && !drop.kept) toast('The flagged buildings file has arrived but '
+      + 'every one of its ' + drop.total + ' features carries no geometry, so none '
+      + 'can be placed. The Earth Engine export needs \'.geo\' first in its '
+      + 'selectors list — a selectors list naming only properties drops the '
+      + 'geometry column. Re-run the task and re-download.', true);
+    else if(drop && drop.kept < drop.total) toast((drop.total - drop.kept) + ' of '
+      + drop.total + ' flagged structures carry no geometry and were dropped.', true);
     else if(!state.buildings) toast('No flagged_buildings.geojson yet — run the Earth Engine export task.');
     else hideToast();
   });
