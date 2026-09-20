@@ -9,6 +9,20 @@ water, ranks them by how much catchment they block, checks any plot before it
 gets built on, and answers questions about that plot from a corpus where every
 number carries the source it came from.
 
+---
+
+### ▶ [Open the interactive explainer](https://redrangerwentwild.github.io/Plaksha_Prayas/)
+
+[![The real Bengaluru layers, stacked in 3D](docs/preview.jpg)](https://redrangerwentwild.github.io/Plaksha_Prayas/)
+
+The seven real exported layers for this catchment, stacked in 3D and rotatable.
+Drag to turn the stack, toggle any layer on or off, pull the planes apart, and
+scrub the era slider from 2003–07 to 2023–25 to watch the amber lost water fade
+to a ghost while cyan survivors and crimson construction rise in its place. No
+install, no account.
+
+---
+
 | Bengaluru &middot; Bellandur &amp; Varthur catchment | |
 |---|---|
 | Water, 1984–99 | **198.66 ha** |
